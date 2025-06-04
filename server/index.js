@@ -11,7 +11,6 @@ const iconv = require('iconv-lite');
 const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
 const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
-const MIN_TEXT_LENGTH = 400;
 
 class Queue {
   constructor(concurrency = 2) {
@@ -169,17 +168,11 @@ app.get('/api/news', async (req, res) => {
         for (const item of items) {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
-          if (!item.text || item.text.length < MIN_TEXT_LENGTH || !item.image) {
-            res.write(`event: log\ndata: ${JSON.stringify({ message: `Scraping ${item.url}` })}\n\n`);
-            const scraped = await scrapeQueue.add(() => scrapeArticle(item.url));
-            if (!item.text || item.text.length < MIN_TEXT_LENGTH) {
-              item.text = scraped.text;
-              item.html = scraped.html;
-            }
-            if (!item.image) {
-              item.image = scraped.image;
-            }
-          }
+          res.write(`event: log\ndata: ${JSON.stringify({ message: `Scraping ${item.url}` })}\n\n`);
+          const scraped = await scrapeQueue.add(() => scrapeArticle(item.url));
+          item.text = scraped.text || item.text;
+          item.html = scraped.html || item.html;
+          item.image = scraped.image || item.image;
           res.write(`data: ${JSON.stringify({ ...item, source: name })}\n\n`);
         }
       } catch (err) {
