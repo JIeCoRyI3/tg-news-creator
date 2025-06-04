@@ -1,7 +1,7 @@
 const iconv = require('iconv-lite');
 
 async function fetchFeed(url, axios, parser) {
-  const res = await axios.get(url, { responseType: 'arraybuffer' });
+  const res = await axios.get(url, { responseType: 'arraybuffer', maxRedirects: 5 });
   const charset = res.headers['content-type']?.match(/charset=([^;]+)/i)?.[1] || 'utf8';
   const xml = iconv.decode(res.data, charset);
   return parser.parseString(xml);
@@ -76,7 +76,7 @@ module.exports = {
   kyivindependent: {
     label: 'Kyiv Independent',
     fetch: async (axios, parser) => {
-      const feed = await fetchFeed('https://kyivindependent.com/feed/', axios, parser);
+      const feed = await fetchFeed('https://kyivindependent.com/feed/rss/', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -102,7 +102,7 @@ module.exports = {
   unian: {
     label: 'UNIAN',
     fetch: async (axios, parser) => {
-      const feed = await fetchFeed('https://www.unian.net/rss/news', axios, parser);
+      const feed = await fetchFeed('https://rss.unian.net/site/news_eng.rss', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -128,7 +128,7 @@ module.exports = {
   ukrinform: {
     label: 'Ukrinform',
     fetch: async (axios, parser) => {
-      const feed = await fetchFeed('https://www.ukrinform.net/block-lastnews?format=xml', axios, parser);
+      const feed = await fetchFeed('https://www.ukrinform.net/rss/block-lastnews', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -141,7 +141,7 @@ module.exports = {
   rferl: {
     label: 'RFE/RL',
     fetch: async (axios, parser) => {
-      const feed = await fetchFeed('https://www.rferl.org/api/zmgqpqe$mggp', axios, parser);
+      const feed = await fetchFeed('https://www.rferl.org/api/', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,

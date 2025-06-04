@@ -1,5 +1,7 @@
 const express = require('express');
 const axios = require('axios');
+const { HttpProxyAgent } = require('http-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const Parser = require('rss-parser');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -7,6 +9,13 @@ const swaggerUi = require('swagger-ui-express');
 const sources = require('./sources');
 
 const app = express();
+const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+const axiosInstance = axios.create(proxyUrl ? {
+  httpAgent: new HttpProxyAgent(proxyUrl),
+  httpsAgent: new HttpsProxyAgent(proxyUrl),
+  proxy: false,
+  maxRedirects: 10
+} : { maxRedirects: 10 });
 app.use(cors({ origin: '*' }));
 const PORT = process.env.PORT || 3001;
 
@@ -54,7 +63,7 @@ app.get('/api/news', async (req, res) => {
       const source = sources[name];
       if (!source) continue;
       try {
-        const items = await source.fetch(axios, parser);
+        const items = await source.fetch(axiosInstance, parser);
         if (status.get(name) !== 'connected') {
           res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'connected' })}\n\n`);
           status.set(name, 'connected');

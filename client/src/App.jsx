@@ -52,6 +52,14 @@ function App() {
       setEs(null)
     }
   }
+
+  const stop = () => {
+    if (es) {
+      es.close()
+      setEs(null)
+    }
+    setStatuses({})
+  }
   useEffect(() => {
     return () => {
       if (es) es.close()
@@ -66,7 +74,7 @@ function App() {
   }, [])
   return (
     <div className="App">
-      <h1>News Aggregator</h1>
+      <h3>News Aggregator</h3>
       <table className="sources">
         <thead>
           <tr>
@@ -85,13 +93,14 @@ function App() {
           ))}
         </tbody>
       </table>
-      <button onClick={start}>Start</button>
+      <div className="controls">
+        <button onClick={start}>Start</button>
+        <button onClick={stop}>Stop</button>
+      </div>
       <div className="news-list">
         {news.map((item) => (
           <div key={item.url} className="news-item">
-            {item.image && <img src={item.image} alt="" />}
-            <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a> <span>({item.source})</span>
-            {item.text && <p>{item.text}</p>}
+            <pre>{JSON.stringify(item, null, 2)}</pre>
           </div>
         ))}
       </div>
