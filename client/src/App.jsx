@@ -16,7 +16,8 @@ const AVAILABLE_SOURCES = {
   liga: 'Liga',
   rbc: 'RBC Ukraine',
   suspilne: 'Suspilne',
-  hromadske: 'Hromadske'
+  hromadske: 'Hromadske',
+  telegram: 'Telegram Channel'
 }
 
 function App() {

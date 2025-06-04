@@ -20,6 +20,8 @@
     "https-proxy-agent": "^7.0.2",
     "rss-parser": "^3.13.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "telegram": "^1.11.1",
+    "dotenv": "^16.4.5"
   }
 }
