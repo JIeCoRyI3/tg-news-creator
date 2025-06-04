@@ -1,0 +1,11 @@
+.App {
+  font-family: sans-serif;
+  padding: 2rem;
+}
+.sources label {
+  display: block;
+  margin-bottom: .25rem;
+}
+.news-item {
+  margin-top: .5rem;
+}
