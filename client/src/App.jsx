@@ -15,8 +15,9 @@ const INITIAL_SOURCES = {
   pravda: 'Ukrainska Pravda',
   ukrinform: 'Ukrinform',
   rferl: 'RFE/RL',
-  liga: 'Liga',
   rbc: 'RBC Ukraine',
+  skynews: 'Sky News',
+  foxnews: 'Fox News',
   suspilne: 'Suspilne',
   hromadske: 'Hromadske'
 }

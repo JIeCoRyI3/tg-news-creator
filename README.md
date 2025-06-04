@@ -14,9 +14,10 @@ This project provides a simple Node.js server and React client that aggregate wo
 - Ukrainska Pravda
 - Ukrinform
 - RFE/RL
-- Liga
 - RBC Ukraine
 - Suspilne
+- Sky News
+- Fox News
 - Hromadske
 - Telegram Channel
 

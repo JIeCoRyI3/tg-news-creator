@@ -153,10 +153,10 @@ const sources = {
       }));
     }
   },
-  liga: {
-    label: 'Liga',
+  rbc: {
+    label: 'RBC Ukraine',
     fetch: async (axios, parser) => {
-      const feed = await fetchFeed('https://news.google.com/rss/search?q=liga.net&hl=en-US&gl=US&ceid=US:en', axios, parser);
+      const feed = await fetchFeed('https://news.google.com/rss/search?q=rbc.ua&hl=en-US&gl=US&ceid=US:en', axios, parser);
       return feed.items.slice(0, 2).map(i => ({
         title: i.title,
         url: i.link,
@@ -166,10 +166,23 @@ const sources = {
       }));
     }
   },
-  rbc: {
-    label: 'RBC Ukraine',
+  skynews: {
+    label: 'Sky News',
     fetch: async (axios, parser) => {
-      const feed = await fetchFeed('https://news.google.com/rss/search?q=rbc.ua&hl=en-US&gl=US&ceid=US:en', axios, parser);
+      const feed = await fetchFeed('https://feeds.skynews.com/feeds/rss/world.xml', axios, parser);
+      return feed.items.slice(0, 2).map(i => ({
+        title: i.title,
+        url: i.link,
+        publishedAt: i.pubDate,
+        text: i.contentSnippet || i.content || null,
+        image: i.enclosure?.url || null
+      }));
+    }
+  },
+  foxnews: {
+    label: 'Fox News',
+    fetch: async (axios, parser) => {
+      const feed = await fetchFeed('https://feeds.foxnews.com/foxnews/world', axios, parser);
       return feed.items.slice(0, 2).map(i => ({
         title: i.title,
         url: i.link,
