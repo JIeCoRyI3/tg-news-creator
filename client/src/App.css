@@ -1,6 +1,6 @@
 .App {
-  font-family: sans-serif;
-  padding: 2rem;
+  font-family: 'Roboto', sans-serif;
+  padding: 1rem;
 }
 .sources {
   border-collapse: collapse;
@@ -46,6 +46,8 @@
 
 .controls {
   margin-bottom: 1rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
 @keyframes slide-fade {
