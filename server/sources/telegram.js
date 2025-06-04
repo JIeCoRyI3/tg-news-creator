@@ -25,19 +25,42 @@ async function getClient() {
   return clientPromise;
 }
 
+async function fetchChannelInfo(url) {
+  const client = await getClient();
+  const entity = await client.getEntity(url);
+  const username = entity.username ? `@${entity.username}` : entity.id.toString();
+  const title = entity.title || entity.firstName || username;
+  return { username, title };
+}
+
 async function fetchChannelMessages(channel) {
   const client = await getClient();
   const peer = await client.getInputEntity(channel);
   const history = await client.invoke(new Api.messages.GetHistory({ peer, limit: 50 }));
-  return history.messages
+  const msgs = history.messages
     .filter(m => m.message)
-    .map(m => ({
-      title: m.message.slice(0, 80),
-      url: `https://t.me/${channel.replace(/^@/, '')}/${m.id}`,
-      publishedAt: m.date?.toISOString ? m.date.toISOString() : new Date(m.date * 1000).toISOString(),
-      text: m.message,
-      image: null
-    }));
+    .map(async (m) => {
+      let image = null;
+      if (m.media) {
+        try {
+          const buf = await client.downloadMedia(m);
+          if (buf && buf.length) {
+            image = `data:image/jpeg;base64,${buf.toString('base64')}`;
+          }
+        } catch {
+          image = null;
+        }
+      }
+      return {
+        title: m.message.slice(0, 80),
+        url: `https://t.me/${channel.replace(/^@/, '')}/${m.id}`,
+        publishedAt: m.date?.toISOString ? m.date.toISOString() : new Date(m.date * 1000).toISOString(),
+        text: m.message,
+        image
+      };
+    });
+  const resolved = await Promise.all(msgs);
+  return resolved.reverse();
 }
 
-module.exports = fetchChannelMessages;
+module.exports = { fetchChannelMessages, fetchChannelInfo };

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
-const AVAILABLE_SOURCES = {
+const INITIAL_SOURCES = {
   bbc: 'BBC',
   cnn: 'CNN',
   reuters: 'Reuters',
@@ -16,8 +16,7 @@ const AVAILABLE_SOURCES = {
   liga: 'Liga',
   rbc: 'RBC Ukraine',
   suspilne: 'Suspilne',
-  hromadske: 'Hromadske',
-  telegram: 'Telegram Channel'
+  hromadske: 'Hromadske'
 }
 
 function App() {
@@ -25,9 +24,25 @@ function App() {
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
   const [statuses, setStatuses] = useState({})
+  const [sources, setSources] = useState(INITIAL_SOURCES)
+  const [channelUrl, setChannelUrl] = useState('')
   const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
+  }
+
+  const addChannel = async () => {
+    const url = channelUrl.trim()
+    if (!url) return
+    try {
+      const resp = await fetch(`http://localhost:3001/api/telegram-info?url=${encodeURIComponent(url)}`)
+      const data = await resp.json()
+      if (data.username) {
+        const id = `tg:${data.username.replace(/^@/, '')}`
+        setSources(prev => ({ ...prev, [id]: data.title }))
+        setChannelUrl('')
+      }
+    } catch {}
   }
   const start = () => {
     if (es) es.close()
@@ -76,6 +91,10 @@ function App() {
   return (
     <div className="App">
       <h3>News Aggregator</h3>
+      <div className="tg-input">
+        <input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="Telegram channel link" />
+        <button onClick={addChannel}>Add</button>
+      </div>
       <table className="sources">
         <thead>
           <tr>
@@ -85,7 +104,7 @@ function App() {
           </tr>
         </thead>
         <tbody>
-          {Object.entries(AVAILABLE_SOURCES).map(([id, label]) => (
+          {Object.entries(sources).map(([id, label]) => (
             <tr key={id} onClick={() => toggle(id)} className={selected.includes(id) ? 'selected' : ''}>
               <td>{label}</td>
               <td className={`status ${statuses[id]?.status}`}>{statuses[id]?.status === 'connected' ? 'Connected' : statuses[id]?.status === 'error' ? 'Error' : ''}</td>
@@ -101,7 +120,9 @@ function App() {
       <div className="news-list">
         {news.map((item) => (
           <div key={item.url} className="news-item">
-            <pre>{JSON.stringify(item, null, 2)}</pre>
+            <h4><a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a></h4>
+            {item.image && <img src={item.image} alt="" />}
+            <p>{item.text}</p>
           </div>
         ))}
       </div>

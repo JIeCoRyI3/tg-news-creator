@@ -33,6 +33,12 @@
   animation: slide-fade .5s forwards;
 }
 
+.news-item img {
+  max-width: 100%;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
 .news-item pre {
   margin: 0;
   white-space: pre-wrap;
@@ -46,6 +52,12 @@
 
 .controls {
   margin-bottom: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tg-input {
+  margin-bottom: 0.5rem;
   display: flex;
   gap: 0.5rem;
 }

@@ -8,6 +8,7 @@ const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const sources = require('./sources');
+const { fetchChannelInfo } = require('./sources/telegram');
 
 const app = express();
 const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
@@ -30,6 +31,33 @@ const swaggerSpec = swaggerJsdoc({
 });
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+/**
+ * @openapi
+ * /api/telegram-info:
+ *   get:
+ *     summary: Get Telegram channel information
+ *     parameters:
+ *       - in: query
+ *         name: url
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Telegram channel link or username
+ *     responses:
+ *       200:
+ *         description: Channel info
+ */
+app.get('/api/telegram-info', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'url required' });
+    const info = await fetchChannelInfo(url);
+    res.json(info);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 /**
  * @openapi
@@ -61,10 +89,17 @@ app.get('/api/news', async (req, res) => {
 
   const sendItems = async () => {
     for (const name of selected) {
-      const source = sources[name];
+      let source = sources[name];
+      let options = {};
+      if (!source) {
+        if (name.startsWith('tg:')) {
+          source = sources.telegram;
+          options.channel = name.slice(3);
+        }
+      }
       if (!source) continue;
       try {
-        const items = await source.fetch(axiosInstance, parser);
+        const items = await source.fetch(axiosInstance, parser, options);
         if (status.get(name) !== 'connected') {
           res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'connected' })}\n\n`);
           status.set(name, 'connected');

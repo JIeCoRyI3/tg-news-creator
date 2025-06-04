@@ -48,6 +48,7 @@ inside the `server` directory with these variables:
 TELEGRAM_API_ID=your_api_id
 TELEGRAM_API_HASH=your_api_hash
 TELEGRAM_SESSION=your_session_string
+# Optionally provide a default channel
 TELEGRAM_CHANNEL=@your_channel
 ```
 
@@ -58,3 +59,7 @@ node login-telegram.js
 ```
 and following the interactive prompts. The script will output a session string
 to paste into the `.env` file.
+
+Once the server is running you can add additional Telegram channels from the UI
+by pasting the channel link into the input above the sources table. The channel
+name will be resolved automatically and added as a selectable source.
