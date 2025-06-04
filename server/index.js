@@ -11,6 +11,7 @@ const iconv = require('iconv-lite');
 const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
 const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
+const MIN_TEXT_LENGTH = 200;
 
 class Queue {
   constructor(concurrency = 2) {
@@ -72,17 +73,21 @@ async function scrapeArticle(url) {
     const { default: unfluff } = await import('unfluff');
     const data = unfluff(html);
     let text = data.text?.trim() || null;
+    let htmlContent = null;
     let image = data.image || data.openGraph?.image || null;
     if (!text || text.length < 40 || !image) {
       const { extractFromHtml } = await import('@extractus/article-extractor');
       const article = await extractFromHtml(html, url);
-      text = text || article?.content?.trim() || null;
+      text = text || article?.text?.trim() || article?.content?.replace(/<[^>]+>/g, '').trim() || null;
+      htmlContent = article?.content?.trim() || null;
       image = image || article?.image || null;
+    } else {
+      htmlContent = data.html || null;
     }
-    return { text, image };
+    return { text, html: htmlContent, image };
   } catch (err) {
     console.error('Error scraping', url, err.message);
-    return { text: null, image: null };
+    return { text: null, html: null, image: null };
   }
 }
 
@@ -164,11 +169,16 @@ app.get('/api/news', async (req, res) => {
         for (const item of items) {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
-          if (!item.text || !item.image) {
+          if (!item.text || item.text.length < MIN_TEXT_LENGTH || !item.image) {
             res.write(`event: log\ndata: ${JSON.stringify({ message: `Scraping ${item.url}` })}\n\n`);
             const scraped = await scrapeQueue.add(() => scrapeArticle(item.url));
-            item.text = item.text || scraped.text;
-            item.image = item.image || scraped.image;
+            if (!item.text || item.text.length < MIN_TEXT_LENGTH) {
+              item.text = scraped.text;
+              item.html = scraped.html;
+            }
+            if (!item.image) {
+              item.image = scraped.image;
+            }
           }
           res.write(`data: ${JSON.stringify({ ...item, source: name })}\n\n`);
         }

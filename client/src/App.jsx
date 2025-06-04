@@ -147,7 +147,7 @@ function App() {
                 <>
                   <h4>{item.title}</h4>
                   {item.image && <img src={item.image} alt="" />}
-                  <p>{item.text}</p>
+                  <div dangerouslySetInnerHTML={{ __html: item.html || `<p>${item.text}</p>` }} />
                   <a href={item.url} target="_blank" rel="noreferrer">{item.url}</a>
                 </>
               )}
