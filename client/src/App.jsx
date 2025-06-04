@@ -45,7 +45,9 @@ function App() {
         setSources(prev => ({ ...prev, [id]: data.title }))
         setChannelUrl('')
       }
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   }
   const start = () => {
     if (es) es.close()
@@ -122,15 +124,13 @@ function App() {
         <button onClick={start}>Start</button>
         <button onClick={stop}>Stop</button>
       </div>
-      <div className="news-list">
-        {news.map((item) => (
-          <div key={item.url} className="news-item">
-            <h4><a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a></h4>
-            {item.image && <img src={item.image} alt="" />}
-            <p>{item.text}</p>
-          </div>
-        ))}
-      </div>
+        <div className="news-list">
+          {news.map((item) => (
+            <div key={item.url} className="news-item">
+              <pre>{JSON.stringify(item, null, 2)}</pre>
+            </div>
+          ))}
+        </div>
     </div>
   )
 }
