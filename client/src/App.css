@@ -2,22 +2,44 @@
   font-family: sans-serif;
   padding: 2rem;
 }
-.sources label {
-  display: block;
-  margin-bottom: .25rem;
+.sources {
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+.sources td {
+  padding: 0.25rem 0.5rem;
+}
+.sources tr {
+  cursor: pointer;
+}
+.sources tr.selected {
+  background-color: #444;
+}
+.status.connected {
+  color: green;
+}
+.status.error {
+  color: red;
 }
 .news-item {
   margin-top: .5rem;
   opacity: 0;
-  animation: fade-in .5s forwards;
+  animation: slide-fade .5s forwards;
 }
 
 .news-item img {
-  max-width: 100%;
+  width: 200px;
+  height: 120px;
+  object-fit: cover;
   display: block;
 }
 
-@keyframes fade-in {
+.news-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+@keyframes slide-fade {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }

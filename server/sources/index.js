@@ -1,8 +1,17 @@
+const iconv = require('iconv-lite');
+
+async function fetchFeed(url, axios, parser) {
+  const res = await axios.get(url, { responseType: 'arraybuffer' });
+  const charset = res.headers['content-type']?.match(/charset=([^;]+)/i)?.[1] || 'utf8';
+  const xml = iconv.decode(res.data, charset);
+  return parser.parseString(xml);
+}
+
 module.exports = {
   bbc: {
     label: 'BBC',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('http://feeds.bbci.co.uk/news/world/rss.xml');
+      const feed = await fetchFeed('http://feeds.bbci.co.uk/news/world/rss.xml', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -15,7 +24,7 @@ module.exports = {
   cnn: {
     label: 'CNN',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('http://rss.cnn.com/rss/cnn_world.rss');
+      const feed = await fetchFeed('http://rss.cnn.com/rss/cnn_world.rss', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -28,7 +37,7 @@ module.exports = {
   reuters: {
     label: 'Reuters',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://news.google.com/rss/search?q=Reuters&hl=en-US&gl=US&ceid=US:en');
+      const feed = await fetchFeed('https://news.google.com/rss/search?q=Reuters&hl=en-US&gl=US&ceid=US:en', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -41,7 +50,7 @@ module.exports = {
   guardian: {
     label: 'The Guardian',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.theguardian.com/world/rss');
+      const feed = await fetchFeed('https://www.theguardian.com/world/rss', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -54,7 +63,7 @@ module.exports = {
   aljazeera: {
     label: 'Al Jazeera',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.aljazeera.com/xml/rss/all.xml');
+      const feed = await fetchFeed('https://www.aljazeera.com/xml/rss/all.xml', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -67,7 +76,7 @@ module.exports = {
   kyivindependent: {
     label: 'Kyiv Independent',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://kyivindependent.com/feed/');
+      const feed = await fetchFeed('https://kyivindependent.com/feed/', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -80,7 +89,7 @@ module.exports = {
   kyivpost: {
     label: 'Kyiv Post',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.kyivpost.com/feed');
+      const feed = await fetchFeed('https://www.kyivpost.com/feed', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -93,7 +102,7 @@ module.exports = {
   unian: {
     label: 'UNIAN',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.unian.net/rss/news');
+      const feed = await fetchFeed('https://www.unian.net/rss/news', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -106,7 +115,7 @@ module.exports = {
   pravda: {
     label: 'Ukrainska Pravda',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.pravda.com.ua/rss/view_news/');
+      const feed = await fetchFeed('https://www.pravda.com.ua/rss/view_news/', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -119,7 +128,7 @@ module.exports = {
   ukrinform: {
     label: 'Ukrinform',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.ukrinform.net/block-lastnews?format=xml');
+      const feed = await fetchFeed('https://www.ukrinform.net/block-lastnews?format=xml', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -132,7 +141,7 @@ module.exports = {
   rferl: {
     label: 'RFE/RL',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://www.rferl.org/api/zmgqpqe$mggp');
+      const feed = await fetchFeed('https://www.rferl.org/api/zmgqpqe$mggp', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -145,7 +154,7 @@ module.exports = {
   liga: {
     label: 'Liga',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://news.google.com/rss/search?q=liga.net&hl=en-US&gl=US&ceid=US:en');
+      const feed = await fetchFeed('https://news.google.com/rss/search?q=liga.net&hl=en-US&gl=US&ceid=US:en', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -158,7 +167,7 @@ module.exports = {
   rbc: {
     label: 'RBC Ukraine',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://news.google.com/rss/search?q=rbc.ua&hl=en-US&gl=US&ceid=US:en');
+      const feed = await fetchFeed('https://news.google.com/rss/search?q=rbc.ua&hl=en-US&gl=US&ceid=US:en', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -171,7 +180,7 @@ module.exports = {
   suspilne: {
     label: 'Suspilne',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://news.google.com/rss/search?q=suspilne&hl=en-US&gl=US&ceid=US:en');
+      const feed = await fetchFeed('https://news.google.com/rss/search?q=suspilne&hl=en-US&gl=US&ceid=US:en', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
@@ -184,7 +193,7 @@ module.exports = {
   hromadske: {
     label: 'Hromadske',
     fetch: async (axios, parser) => {
-      const feed = await parser.parseURL('https://news.google.com/rss/search?q=hromadske&hl=en-US&gl=US&ceid=US:en');
+      const feed = await fetchFeed('https://news.google.com/rss/search?q=hromadske&hl=en-US&gl=US&ceid=US:en', axios, parser);
       return feed.items.map(i => ({
         title: i.title,
         url: i.link,
