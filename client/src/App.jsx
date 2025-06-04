@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react'
+import Logs from './components/Logs.jsx'
+import TelegramInput from './components/TelegramInput.jsx'
+import SourcesTable from './components/SourcesTable.jsx'
+import ModeToggle from './components/ModeToggle.jsx'
+import Controls from './components/Controls.jsx'
+import NewsList from './components/NewsList.jsx'
 
 const TG_ENABLED = import.meta.env.VITE_TG_INTEGRATION_FF === 'true'
 import './App.css'
@@ -86,6 +92,7 @@ function App() {
       es.close()
       setEs(null)
     }
+    setNews([])
     setStatuses({})
     setLogs([])
   }
@@ -104,60 +111,14 @@ function App() {
   return (
     <div className="App">
       <h3>News Aggregator</h3>
-      <div className="logs">
-        {logs.map((l, i) => <div key={i}>{l}</div>)}
-      </div>
+      <Logs logs={logs} />
       {TG_ENABLED && (
-        <div className="tg-input">
-          <input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="Telegram channel link" />
-          <button onClick={addChannel}>Add</button>
-        </div>
+        <TelegramInput channelUrl={channelUrl} setChannelUrl={setChannelUrl} addChannel={addChannel} />
       )}
-      <table className="sources">
-        <thead>
-          <tr>
-            <th>Source</th>
-            <th>Status</th>
-            <th>Ping (s)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(sources).map(([id, label]) => (
-            <tr key={id} onClick={() => toggle(id)} className={selected.includes(id) ? 'selected' : ''}>
-              <td>{label}</td>
-              <td className={`status ${statuses[id]?.status}`}>{statuses[id]?.status === 'connected' ? 'Connected' : statuses[id]?.status === 'error' ? 'Error' : ''}</td>
-              <td>{statuses[id]?.lastPing ? Math.floor((Date.now() - statuses[id].lastPing)/1000) : '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mode-toggle">
-        <label><input type="radio" checked={mode === 'json'} onChange={() => setMode('json')} /> JSON</label>
-        <label><input type="radio" checked={mode === 'render'} onChange={() => setMode('render')} /> Render</label>
-      </div>
-      <div className="controls">
-        <button onClick={start}>Start</button>
-        <button onClick={stop}>Stop</button>
-      </div>
-        <div className="news-list">
-          {news.map((item) => (
-            <div key={item.url} className="news-item">
-              {mode === 'json' ? (
-                <pre>{JSON.stringify(item, null, 2)}</pre>
-              ) : (
-                <div className="tg-post">
-                  <div className="tg-post-title">{item.title}</div>
-                  {item.image && <img src={item.image} alt="" />}
-                  <div className="tg-post-text" dangerouslySetInnerHTML={{ __html: item.html || `<p>${item.text}</p>` }} />
-                  <div className="tg-post-footer">
-                    <span>{new Date(item.publishedAt).toLocaleString()}</span>
-                    <a href={item.url} target="_blank" rel="noreferrer">Open</a>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      <SourcesTable sources={sources} selected={selected} toggle={toggle} statuses={statuses} />
+      <ModeToggle mode={mode} setMode={setMode} />
+      <Controls start={start} stop={stop} />
+      <NewsList news={news} mode={mode} />
     </div>
   )
 }
