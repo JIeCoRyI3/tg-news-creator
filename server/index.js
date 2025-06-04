@@ -47,6 +47,7 @@ app.get('/api/news', async (req, res) => {
   const selected = req.query.sources ? req.query.sources.split(',') : [];
   const parser = new Parser();
   const seen = new Set();
+  const status = new Map();
 
   const sendItems = async () => {
     for (const name of selected) {
@@ -54,12 +55,20 @@ app.get('/api/news', async (req, res) => {
       if (!source) continue;
       try {
         const items = await source.fetch(axios, parser);
+        if (status.get(name) !== 'connected') {
+          res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'connected' })}\n\n`);
+          status.set(name, 'connected');
+        }
         for (const item of items) {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           res.write(`data: ${JSON.stringify({ ...item, source: name })}\n\n`);
         }
       } catch (err) {
+        if (status.get(name) !== 'error') {
+          res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'error', message: err.message })}\n\n`);
+          status.set(name, 'error');
+        }
         console.error('Error fetching source', name, err.message);
       }
     }

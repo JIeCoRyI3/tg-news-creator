@@ -23,6 +23,7 @@ function App() {
   const [selected, setSelected] = useState([])
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
+  const [statuses, setStatuses] = useState({})
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
   }
@@ -36,6 +37,10 @@ function App() {
       const item = JSON.parse(e.data)
       setNews(prev => [item, ...prev])
     }
+    eventSource.addEventListener('status', (e) => {
+      const data = JSON.parse(e.data)
+      setStatuses(prev => ({ ...prev, [data.source]: data }))
+    })
     eventSource.onerror = () => {
       eventSource.close()
       setEs(null)
@@ -49,13 +54,16 @@ function App() {
   return (
     <div className="App">
       <h1>News Aggregator</h1>
-      <div className="sources">
-        {Object.entries(AVAILABLE_SOURCES).map(([id, label]) => (
-          <label key={id}>
-            <input type="checkbox" checked={selected.includes(id)} onChange={() => toggle(id)} /> {label}
-          </label>
-        ))}
-      </div>
+      <table className="sources">
+        <tbody>
+          {Object.entries(AVAILABLE_SOURCES).map(([id, label]) => (
+            <tr key={id} onClick={() => toggle(id)} className={selected.includes(id) ? 'selected' : ''}>
+              <td>{label}</td>
+              <td className={`status ${statuses[id]?.status}`}>{statuses[id]?.status === 'connected' ? 'Connected' : statuses[id]?.status === 'error' ? 'Error' : ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <button onClick={start}>Start</button>
       <div className="news-list">
         {news.map((item, idx) => (
