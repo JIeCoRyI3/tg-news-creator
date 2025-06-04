@@ -36,7 +36,7 @@ async function fetchChannelInfo(url) {
 async function fetchChannelMessages(channel) {
   const client = await getClient();
   const peer = await client.getInputEntity(channel);
-  const history = await client.invoke(new Api.messages.GetHistory({ peer, limit: 50 }));
+  const history = await client.invoke(new Api.messages.GetHistory({ peer, limit: 2 }));
   const msgs = history.messages
     .filter(m => m.message)
     .map(async (m) => {

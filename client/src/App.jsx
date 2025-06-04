@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+
+const TG_ENABLED = import.meta.env.VITE_TG_INTEGRATION_FF === 'true'
 import './App.css'
 
 const INITIAL_SOURCES = {
@@ -32,6 +34,7 @@ function App() {
   }
 
   const addChannel = async () => {
+    if (!TG_ENABLED) return
     const url = channelUrl.trim()
     if (!url) return
     try {
@@ -91,10 +94,12 @@ function App() {
   return (
     <div className="App">
       <h3>News Aggregator</h3>
-      <div className="tg-input">
-        <input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="Telegram channel link" />
-        <button onClick={addChannel}>Add</button>
-      </div>
+      {TG_ENABLED && (
+        <div className="tg-input">
+          <input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="Telegram channel link" />
+          <button onClick={addChannel}>Add</button>
+        </div>
+      )}
       <table className="sources">
         <thead>
           <tr>

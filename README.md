@@ -50,7 +50,16 @@ TELEGRAM_API_HASH=your_api_hash
 TELEGRAM_SESSION=your_session_string
 # Optionally provide a default channel
 TELEGRAM_CHANNEL=@your_channel
+TG_INTEGRATION_FF=true
 ```
+
+For the React client, create a `.env` inside the `client` directory with:
+
+```bash
+VITE_TG_INTEGRATION_FF=true
+```
+
+Set the value to `false` to completely disable Telegram integration in both the server and UI.
 
 Generate `TELEGRAM_SESSION` by running:
 
