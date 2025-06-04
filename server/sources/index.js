@@ -1,4 +1,5 @@
 const iconv = require('iconv-lite');
+const fetchTelegram = require('./telegram');
 
 async function fetchFeed(url, axios, parser) {
   const res = await axios.get(url, { responseType: 'arraybuffer', maxRedirects: 5 });
@@ -201,6 +202,14 @@ module.exports = {
         text: i.contentSnippet || i.content || null,
         image: i.enclosure?.url || null
       }));
+    }
+  },
+  telegram: {
+    label: 'Telegram Channel',
+    fetch: async () => {
+      const channel = process.env.TELEGRAM_CHANNEL;
+      if (!channel) throw new Error('TELEGRAM_CHANNEL is not defined');
+      return fetchTelegram(channel);
     }
   }
 };
