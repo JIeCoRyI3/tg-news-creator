@@ -70,6 +70,8 @@ app.get('/api/news', async (req, res) => {
           status.set(name, 'error');
         }
         console.error('Error fetching source', name, err.message);
+      } finally {
+        res.write(`event: ping\ndata: ${JSON.stringify({ source: name, time: Date.now() })}\n\n`);
       }
     }
   };

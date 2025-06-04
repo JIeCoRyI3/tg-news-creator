@@ -6,8 +6,10 @@
   border-collapse: collapse;
   margin-bottom: 1rem;
 }
+.sources th,
 .sources td {
   padding: 0.25rem 0.5rem;
+  border: 1px solid #666;
 }
 .sources tr {
   cursor: pointer;

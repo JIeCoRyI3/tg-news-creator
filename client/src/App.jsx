@@ -24,6 +24,7 @@ function App() {
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
   const [statuses, setStatuses] = useState({})
+  const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
   }
@@ -36,10 +37,15 @@ function App() {
     eventSource.onmessage = (e) => {
       const item = JSON.parse(e.data)
       setNews(prev => [item, ...prev])
+      setStatuses(prev => ({ ...prev, [item.source]: { ...(prev[item.source] || {}), lastPing: Date.now() } }))
     }
     eventSource.addEventListener('status', (e) => {
       const data = JSON.parse(e.data)
-      setStatuses(prev => ({ ...prev, [data.source]: data }))
+      setStatuses(prev => ({ ...prev, [data.source]: { ...data, lastPing: Date.now() } }))
+    })
+    eventSource.addEventListener('ping', (e) => {
+      const data = JSON.parse(e.data)
+      setStatuses(prev => ({ ...prev, [data.source]: { ...(prev[data.source] || {}), lastPing: Date.now() } }))
     })
     eventSource.onerror = () => {
       eventSource.close()
@@ -51,23 +57,38 @@ function App() {
       if (es) es.close()
     }
   }, [es])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      forceTick(t => t + 1)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
   return (
     <div className="App">
       <h1>News Aggregator</h1>
       <table className="sources">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Ping (s)</th>
+          </tr>
+        </thead>
         <tbody>
           {Object.entries(AVAILABLE_SOURCES).map(([id, label]) => (
             <tr key={id} onClick={() => toggle(id)} className={selected.includes(id) ? 'selected' : ''}>
               <td>{label}</td>
               <td className={`status ${statuses[id]?.status}`}>{statuses[id]?.status === 'connected' ? 'Connected' : statuses[id]?.status === 'error' ? 'Error' : ''}</td>
+              <td>{statuses[id]?.lastPing ? Math.floor((Date.now() - statuses[id].lastPing)/1000) : '-'}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <button onClick={start}>Start</button>
       <div className="news-list">
-        {news.map((item, idx) => (
-          <div key={idx} className="news-item">
+        {news.map((item) => (
+          <div key={item.url} className="news-item">
             {item.image && <img src={item.image} alt="" />}
             <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a> <span>({item.source})</span>
             {item.text && <p>{item.text}</p>}

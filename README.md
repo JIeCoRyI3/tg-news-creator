@@ -24,22 +24,16 @@ This project provides a simple Node.js server and React client that aggregate wo
 Install dependencies for both server and client:
 
 ```bash
-cd server && npm install
-cd ../client && npm install
+npm run install-all
 ```
 
-### Run the server
+### Run both server and client
 
 ```bash
-npm start --prefix ../server
+npm start
 ```
 The server listens on **http://localhost:3001** and exposes an SSE endpoint `/api/news?sources=source1,source2` streaming JSON objects. Swagger documentation is available at `/docs`.
 
-### Run the client
-
-```bash
-npm run dev --prefix ../client
-```
 The React UI will open on **http://localhost:3000**.
 
 Select news sources and press **Start** to start the live stream of headlines.
