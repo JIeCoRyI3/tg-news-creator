@@ -7,8 +7,9 @@ const Parser = require('rss-parser');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
-const { fetchChannelInfo } = require('./sources/telegram');
+const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
 
 const app = express();
 const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
@@ -48,16 +49,18 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *       200:
  *         description: Channel info
  */
-app.get('/api/telegram-info', async (req, res) => {
-  try {
-    const { url } = req.query;
-    if (!url) return res.status(400).json({ error: 'url required' });
-    const info = await fetchChannelInfo(url);
-    res.json(info);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+if (TG_ENABLED) {
+  app.get('/api/telegram-info', async (req, res) => {
+    try {
+      const { url } = req.query;
+      if (!url) return res.status(400).json({ error: 'url required' });
+      const info = await fetchChannelInfo(url);
+      res.json(info);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+}
 
 /**
  * @openapi
@@ -92,7 +95,7 @@ app.get('/api/news', async (req, res) => {
       let source = sources[name];
       let options = {};
       if (!source) {
-        if (name.startsWith('tg:')) {
+        if (TG_ENABLED && name.startsWith('tg:')) {
           source = sources.telegram;
           options.channel = name.slice(3);
         }
