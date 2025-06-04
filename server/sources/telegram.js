@@ -14,7 +14,12 @@ async function getClient() {
       throw new Error('Telegram credentials are not fully provided');
     }
     const session = new StringSession(sessionString);
-    const client = new TelegramClient(session, apiId, apiHash, { connectionRetries: 5 });
+    const client = new TelegramClient(session, apiId, apiHash, {
+      connectionRetries: 5,
+      deviceModel: 'tg-news-creator',
+      systemVersion: process.version,
+      appVersion: '2.0'
+    });
     clientPromise = client.connect().then(() => client);
   }
   return clientPromise;

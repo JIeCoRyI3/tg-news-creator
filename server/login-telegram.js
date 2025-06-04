@@ -1,6 +1,10 @@
+const path = require('node:path');
 const { TelegramClient } = require('telegram');
 const { StringSession } = require('telegram/sessions');
 const readline = require('readline');
+
+// Load environment variables from .env in this directory
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 function ask(query) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -15,7 +19,12 @@ function ask(query) {
     return;
   }
   const session = new StringSession('');
-  const client = new TelegramClient(session, apiId, apiHash, { connectionRetries: 5 });
+  const client = new TelegramClient(session, apiId, apiHash, {
+    connectionRetries: 5,
+    deviceModel: 'tg-news-creator',
+    systemVersion: process.version,
+    appVersion: '2.0'
+  });
   await client.start({
     phoneNumber: async () => await ask('Phone number: '),
     password: async () => await ask('Password (if any): '),
