@@ -7,6 +7,7 @@ const Parser = require('rss-parser');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const iconv = require('iconv-lite');
 const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
 const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
@@ -32,6 +33,23 @@ const swaggerSpec = swaggerJsdoc({
 });
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+async function scrapeArticle(url) {
+  try {
+    const res = await axiosInstance.get(url, { responseType: 'arraybuffer', maxRedirects: 5 });
+    const charset = res.headers['content-type']?.match(/charset=([^;]+)/i)?.[1] || 'utf8';
+    const html = iconv.decode(res.data, charset);
+    const { extractFromHtml } = await import('@extractus/article-extractor');
+    const article = await extractFromHtml(html, url);
+    return {
+      text: article?.content?.trim() || null,
+      image: article?.image || null
+    };
+  } catch (err) {
+    console.error('Error scraping', url, err.message);
+    return { text: null, image: null };
+  }
+}
 
 /**
  * @openapi
@@ -110,6 +128,11 @@ app.get('/api/news', async (req, res) => {
         for (const item of items) {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
+          if (!item.text || !item.image) {
+            const scraped = await scrapeArticle(item.url);
+            item.text = item.text || scraped.text;
+            item.image = item.image || scraped.image;
+          }
           res.write(`data: ${JSON.stringify({ ...item, source: name })}\n\n`);
         }
       } catch (err) {
