@@ -28,6 +28,8 @@ function App() {
   const [statuses, setStatuses] = useState({})
   const [sources, setSources] = useState(INITIAL_SOURCES)
   const [channelUrl, setChannelUrl] = useState('')
+  const [logs, setLogs] = useState([])
+  const [mode, setMode] = useState('json')
   const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
@@ -68,6 +70,10 @@ function App() {
       const data = JSON.parse(e.data)
       setStatuses(prev => ({ ...prev, [data.source]: { ...(prev[data.source] || {}), lastPing: Date.now() } }))
     })
+    eventSource.addEventListener('log', (e) => {
+      const data = JSON.parse(e.data)
+      setLogs(prev => [data.message, ...prev].slice(0, 50))
+    })
     eventSource.onerror = () => {
       eventSource.close()
       setEs(null)
@@ -80,6 +86,7 @@ function App() {
       setEs(null)
     }
     setStatuses({})
+    setLogs([])
   }
   useEffect(() => {
     return () => {
@@ -96,6 +103,9 @@ function App() {
   return (
     <div className="App">
       <h3>News Aggregator</h3>
+      <div className="logs">
+        {logs.map((l, i) => <div key={i}>{l}</div>)}
+      </div>
       {TG_ENABLED && (
         <div className="tg-input">
           <input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="Telegram channel link" />
@@ -120,6 +130,10 @@ function App() {
           ))}
         </tbody>
       </table>
+      <div className="mode-toggle">
+        <label><input type="radio" checked={mode === 'json'} onChange={() => setMode('json')} /> JSON</label>
+        <label><input type="radio" checked={mode === 'render'} onChange={() => setMode('render')} /> Render</label>
+      </div>
       <div className="controls">
         <button onClick={start}>Start</button>
         <button onClick={stop}>Stop</button>
@@ -127,7 +141,16 @@ function App() {
         <div className="news-list">
           {news.map((item) => (
             <div key={item.url} className="news-item">
-              <pre>{JSON.stringify(item, null, 2)}</pre>
+              {mode === 'json' ? (
+                <pre>{JSON.stringify(item, null, 2)}</pre>
+              ) : (
+                <>
+                  <h4>{item.title}</h4>
+                  {item.image && <img src={item.image} alt="" />}
+                  <p>{item.text}</p>
+                  <a href={item.url} target="_blank" rel="noreferrer">{item.url}</a>
+                </>
+              )}
             </div>
           ))}
         </div>

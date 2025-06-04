@@ -62,6 +62,22 @@
   gap: 0.5rem;
 }
 
+.logs {
+  max-height: 100px;
+  overflow-y: auto;
+  background-color: #222;
+  border: 1px solid #666;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.mode-toggle {
+  margin-bottom: 0.5rem;
+  display: flex;
+  gap: 1rem;
+}
+
 @keyframes slide-fade {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }

@@ -12,6 +12,36 @@ const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
 const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
 
+class Queue {
+  constructor(concurrency = 2) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.tasks = [];
+  }
+
+  add(fn) {
+    return new Promise((resolve, reject) => {
+      this.tasks.push({ fn, resolve, reject });
+      this.next();
+    });
+  }
+
+  next() {
+    if (this.running >= this.concurrency || this.tasks.length === 0) return;
+    const { fn, resolve, reject } = this.tasks.shift();
+    this.running++;
+    Promise.resolve()
+      .then(fn)
+      .then(resolve, reject)
+      .finally(() => {
+        this.running--;
+        this.next();
+      });
+  }
+}
+
+const scrapeQueue = new Queue(2);
+
 const app = express();
 const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
 const axiosInstance = axios.create(proxyUrl ? {
@@ -39,12 +69,17 @@ async function scrapeArticle(url) {
     const res = await axiosInstance.get(url, { responseType: 'arraybuffer', maxRedirects: 5 });
     const charset = res.headers['content-type']?.match(/charset=([^;]+)/i)?.[1] || 'utf8';
     const html = iconv.decode(res.data, charset);
-    const { extractFromHtml } = await import('@extractus/article-extractor');
-    const article = await extractFromHtml(html, url);
-    return {
-      text: article?.content?.trim() || null,
-      image: article?.image || null
-    };
+    const { default: unfluff } = await import('unfluff');
+    const data = unfluff(html);
+    let text = data.text?.trim() || null;
+    let image = data.image || data.openGraph?.image || null;
+    if (!text || text.length < 40 || !image) {
+      const { extractFromHtml } = await import('@extractus/article-extractor');
+      const article = await extractFromHtml(html, url);
+      text = text || article?.content?.trim() || null;
+      image = image || article?.image || null;
+    }
+    return { text, image };
   } catch (err) {
     console.error('Error scraping', url, err.message);
     return { text: null, image: null };
@@ -120,6 +155,7 @@ app.get('/api/news', async (req, res) => {
       }
       if (!source) continue;
       try {
+        res.write(`event: log\ndata: ${JSON.stringify({ message: `Fetching ${name}` })}\n\n`);
         const items = await source.fetch(axiosInstance, parser, options);
         if (status.get(name) !== 'connected') {
           res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'connected' })}\n\n`);
@@ -129,7 +165,8 @@ app.get('/api/news', async (req, res) => {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           if (!item.text || !item.image) {
-            const scraped = await scrapeArticle(item.url);
+            res.write(`event: log\ndata: ${JSON.stringify({ message: `Scraping ${item.url}` })}\n\n`);
+            const scraped = await scrapeQueue.add(() => scrapeArticle(item.url));
             item.text = item.text || scraped.text;
             item.image = item.image || scraped.image;
           }
