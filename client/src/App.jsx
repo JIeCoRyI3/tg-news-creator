@@ -144,12 +144,15 @@ function App() {
               {mode === 'json' ? (
                 <pre>{JSON.stringify(item, null, 2)}</pre>
               ) : (
-                <>
-                  <h4>{item.title}</h4>
+                <div className="tg-post">
+                  <div className="tg-post-title">{item.title}</div>
                   {item.image && <img src={item.image} alt="" />}
-                  <div dangerouslySetInnerHTML={{ __html: item.html || `<p>${item.text}</p>` }} />
-                  <a href={item.url} target="_blank" rel="noreferrer">{item.url}</a>
-                </>
+                  <div className="tg-post-text" dangerouslySetInnerHTML={{ __html: item.html || `<p>${item.text}</p>` }} />
+                  <div className="tg-post-footer">
+                    <span>{new Date(item.publishedAt).toLocaleString()}</span>
+                    <a href={item.url} target="_blank" rel="noreferrer">Open</a>
+                  </div>
+                </div>
               )}
             </div>
           ))}

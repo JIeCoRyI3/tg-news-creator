@@ -11,7 +11,7 @@ const iconv = require('iconv-lite');
 const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
 const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
-const MIN_TEXT_LENGTH = 200;
+const MIN_TEXT_LENGTH = 400;
 
 class Queue {
   constructor(concurrency = 2) {
