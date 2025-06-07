@@ -32,9 +32,14 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
+// channelId -> { title, username }
+const adminChannels = new Map();
+
 bot.setMyCommands([
   { command: 'connect', description: 'Connect to news server' },
   { command: 'show_news', description: 'Show new news' },
+  { command: 'display_channels', description: 'List channels I can post to' },
+  { command: 'post_news', description: 'Select channel to post news' },
   { command: 'stop', description: 'Stop sending news' },
   { command: 'disconnect', description: 'Disconnect from news server' }
 ]);
@@ -47,7 +52,21 @@ try {
   console.error('Failed to set chat menu button', e);
 }
 
-const connections = new Map(); // chatId -> { es, show, seen, lastNews, lastPing, interval }
+bot.on('my_chat_member', (data) => {
+  if (data.chat?.type === 'channel') {
+    const status = data.new_chat_member?.status;
+    const info = { title: data.chat.title, username: data.chat.username ? `@${data.chat.username}` : null };
+    if (status === 'administrator' || status === 'creator') {
+      adminChannels.set(data.chat.id, info);
+      console.log(`Added channel ${info.username || info.title}`);
+    } else if (adminChannels.has(data.chat.id)) {
+      adminChannels.delete(data.chat.id);
+      console.log(`Removed channel ${info.username || info.title}`);
+    }
+  }
+});
+
+const connections = new Map(); // chatId -> { es, show, seen, lastNews, lastPing, interval, channelId }
 
 function disconnect(chatId) {
   const c = connections.get(chatId);
@@ -64,13 +83,13 @@ function ensureConnection(chatId) {
       return resolve();
     }
     const es = new EventSource(`${serverUrl}/api/news?sources=${ALL_SOURCES.join(',')}&history=false`);
-    const state = { es, show: false, seen: new Set(), lastNews: Date.now(), lastPing: Date.now(), interval: null };
+    const state = { es, show: false, seen: new Set(), lastNews: Date.now(), lastPing: Date.now(), interval: null, channelId: null };
     connections.set(chatId, state);
     es.onopen = () => {
       state.interval = setInterval(() => {
         if (state.show && Date.now() - state.lastNews > 30000) {
           const sincePing = Math.floor((Date.now() - state.lastPing) / 1000);
-          bot.sendMessage(chatId, `No new news yet. Last server ping ${sincePing}s ago.`);
+          console.log(`Chat ${chatId}: no news yet. Last server ping ${sincePing}s ago.`);
         }
       }, 30000);
       resolve();
@@ -86,13 +105,15 @@ function ensureConnection(chatId) {
         if (data.url && state.seen.has(data.url)) return;
         if (data.url) state.seen.add(data.url);
         state.lastNews = Date.now();
-        bot.sendMessage(chatId, `\u0060\u0060\u0060\n${JSON.stringify(data, null, 2)}\n\u0060\u0060\u0060`, { parse_mode: 'Markdown' });
+        const target = state.channelId || chatId;
+        bot.sendMessage(target, `\u0060\u0060\u0060\n${JSON.stringify(data, null, 2)}\n\u0060\u0060\u0060`, { parse_mode: 'Markdown' });
       } catch {
         // ignore
       }
     };
     es.addEventListener('ping', () => {
       state.lastPing = Date.now();
+      console.log(`Chat ${chatId}: received ping`);
     });
   });
 }
@@ -130,6 +151,31 @@ bot.onText(/\/show_news/, async (msg) => {
   }
 });
 
+bot.onText(/\/display_channels/, (msg) => {
+  const chatId = msg.chat.id;
+  if (adminChannels.size === 0) {
+    bot.sendMessage(chatId, 'No channels found where I am administrator.');
+    return;
+  }
+  const list = [...adminChannels.values()].map((c, i) => `${i + 1}. ${c.username || c.title}`).join('\n');
+  bot.sendMessage(chatId, `Available channels:\n${list}`);
+});
+
+bot.onText(/\/post_news/, (msg) => {
+  const chatId = msg.chat.id;
+  const state = connections.get(chatId);
+  if (!state) {
+    bot.sendMessage(chatId, 'Please /connect first.');
+    return;
+  }
+  if (adminChannels.size === 0) {
+    bot.sendMessage(chatId, 'No channels available. Promote me to a channel first.');
+    return;
+  }
+  const keyboard = [...adminChannels.entries()].map(([id, c]) => [{ text: c.username || c.title, callback_data: `post:${id}` }]);
+  bot.sendMessage(chatId, 'Select channel to post news:', { reply_markup: { inline_keyboard: keyboard } });
+});
+
 bot.on('callback_query', (query) => {
   const chatId = query.message.chat.id;
   if (query.data === 'allow_news') {
@@ -138,6 +184,17 @@ bot.on('callback_query', (query) => {
     bot.answerCallbackQuery(query.id, { text: 'News feed started' });
   } else if (query.data === 'deny_news') {
     bot.answerCallbackQuery(query.id, { text: 'Permission denied' });
+  } else if (query.data.startsWith('post:')) {
+    const channelId = parseInt(query.data.slice(5), 10);
+    const channel = adminChannels.get(channelId);
+    const state = connections.get(chatId);
+    if (state && channel) {
+      state.show = true;
+      state.channelId = channelId;
+      bot.answerCallbackQuery(query.id, { text: `Posting news to ${channel.username || channel.title}` });
+    } else {
+      bot.answerCallbackQuery(query.id, { text: 'Unable to start posting' });
+    }
   }
 });
 
@@ -146,6 +203,7 @@ bot.onText(/\/stop/, (msg) => {
   const state = connections.get(chatId);
   if (state) {
     state.show = false;
+    state.channelId = null;
     bot.sendMessage(chatId, 'Stopped');
   } else {
     bot.sendMessage(chatId, 'Not connected');
