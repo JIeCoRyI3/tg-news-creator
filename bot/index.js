@@ -6,6 +6,25 @@ import EventSource from 'eventsource';
 const token = process.env.BOT_TOKEN;
 const serverUrl = process.env.SERVER_URL || 'http://localhost:3001';
 
+const ALL_SOURCES = [
+  'bbc',
+  'cnn',
+  'reuters',
+  'guardian',
+  'aljazeera',
+  'kyivindependent',
+  'kyivpost',
+  'unian',
+  'pravda',
+  'ukrinform',
+  'rferl',
+  'rbc',
+  'skynews',
+  'foxnews',
+  'suspilne',
+  'hromadske'
+];
+
 if (!token) {
   console.error('BOT_TOKEN is not defined');
   process.exit(1);
@@ -28,12 +47,13 @@ try {
   console.error('Failed to set chat menu button', e);
 }
 
-const connections = new Map(); // chatId -> { es, show, seen }
+const connections = new Map(); // chatId -> { es, show, seen, lastNews, lastPing, interval }
 
 function disconnect(chatId) {
   const c = connections.get(chatId);
   if (c) {
     c.es.close();
+    if (c.interval) clearInterval(c.interval);
     connections.delete(chatId);
   }
 }
@@ -43,10 +63,18 @@ function ensureConnection(chatId) {
     if (connections.has(chatId)) {
       return resolve();
     }
-    const es = new EventSource(`${serverUrl}/api/news`);
-    const state = { es, show: false, seen: new Set() };
+    const es = new EventSource(`${serverUrl}/api/news?sources=${ALL_SOURCES.join(',')}`);
+    const state = { es, show: false, seen: new Set(), lastNews: Date.now(), lastPing: Date.now(), interval: null };
     connections.set(chatId, state);
-    es.onopen = () => resolve();
+    es.onopen = () => {
+      state.interval = setInterval(() => {
+        if (state.show && Date.now() - state.lastNews > 30000) {
+          const sincePing = Math.floor((Date.now() - state.lastPing) / 1000);
+          bot.sendMessage(chatId, `No new news yet. Last server ping ${sincePing}s ago.`);
+        }
+      }, 30000);
+      resolve();
+    };
     es.onerror = (err) => {
       disconnect(chatId);
       reject(err);
@@ -57,11 +85,15 @@ function ensureConnection(chatId) {
         const data = JSON.parse(event.data);
         if (data.url && state.seen.has(data.url)) return;
         if (data.url) state.seen.add(data.url);
+        state.lastNews = Date.now();
         bot.sendMessage(chatId, `\u0060\u0060\u0060\n${JSON.stringify(data, null, 2)}\n\u0060\u0060\u0060`, { parse_mode: 'Markdown' });
       } catch {
         // ignore
       }
     };
+    es.addEventListener('ping', () => {
+      state.lastPing = Date.now();
+    });
   });
 }
 
