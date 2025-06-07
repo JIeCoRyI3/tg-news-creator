@@ -15,7 +15,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 bot.setMyCommands([
   { command: 'connect', description: 'Connect to news server' },
-  { command: 'show-news', description: 'Show new news' },
+  { command: 'show_news', description: 'Show new news' },
   { command: 'stop', description: 'Stop sending news' },
   { command: 'disconnect', description: 'Disconnect from news server' }
 ]);
@@ -88,7 +88,7 @@ function askPermission(chatId) {
   });
 }
 
-bot.onText(/\/show-news/, async (msg) => {
+bot.onText(/\/show_news/, async (msg) => {
   const chatId = msg.chat.id;
   try {
     await ensureConnection(chatId);
