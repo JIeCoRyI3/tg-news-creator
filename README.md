@@ -34,7 +34,7 @@ npm run install-all
 ```bash
 npm start
 ```
-The server listens on **http://localhost:3001** and exposes an SSE endpoint `/api/news?sources=source1,source2` streaming JSON objects. Swagger documentation is available at `/docs`.
+The server listens on **http://localhost:3001** and exposes an SSE endpoint `/api/news?sources=source1,source2&history=true` streaming JSON objects. Set `history=false` to skip the initial batch of two recent items from each source. Swagger documentation is available at `/docs`.
 
 The React UI will open on **http://localhost:3000**.
 

@@ -130,6 +130,12 @@ if (TG_ENABLED) {
  *         schema:
  *           type: string
  *         description: Comma separated list of source ids
+ *       - in: query
+ *         name: history
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Include last two items from each source on connect
  *     responses:
  *       200:
  *         description: SSE stream of news objects
@@ -143,9 +149,11 @@ app.get('/api/news', async (req, res) => {
   res.flushHeaders();
 
   const selected = req.query.sources ? req.query.sources.split(',') : [];
+  const includeHistory = req.query.history !== 'false';
   const parser = new Parser();
   const seen = new Set();
   const status = new Map();
+  let initial = true;
 
   const sendItems = async () => {
     for (const name of selected) {
@@ -168,6 +176,7 @@ app.get('/api/news', async (req, res) => {
         for (const item of items) {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
+          if (!includeHistory && initial) continue;
           res.write(`event: log\ndata: ${JSON.stringify({ message: `Scraping ${item.url}` })}\n\n`);
           const scraped = await scrapeQueue.add(() => scrapeArticle(item.url));
           item.text = scraped.text || item.text;
@@ -188,6 +197,7 @@ app.get('/api/news', async (req, res) => {
   };
 
   await sendItems();
+  initial = false;
   const interval = setInterval(sendItems, 60000);
   req.on('close', () => {
     clearInterval(interval);
