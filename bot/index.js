@@ -2,6 +2,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 import TelegramBot from 'node-telegram-bot-api';
 import EventSource from 'eventsource';
+import { readFileSync, writeFileSync } from 'fs';
+
+const ADMIN_FILE = new URL('./admin-channels.json', import.meta.url);
 
 const token = process.env.BOT_TOKEN;
 const serverUrl = process.env.SERVER_URL || 'http://localhost:3001';
@@ -35,6 +38,33 @@ const bot = new TelegramBot(token, { polling: true });
 // channelId -> { title, username }
 const adminChannels = new Map();
 
+try {
+  const data = readFileSync(ADMIN_FILE, 'utf8');
+  const obj = JSON.parse(data);
+  for (const [id, info] of Object.entries(obj)) {
+    adminChannels.set(Number(id), info);
+  }
+  if (adminChannels.size > 0) {
+    console.log(`Loaded ${adminChannels.size} admin channel(s) from file`);
+  }
+} catch (e) {
+  if (e.code !== 'ENOENT') {
+    console.error('Failed to load admin channels', e);
+  }
+}
+
+function persistAdminChannels() {
+  const obj = {};
+  for (const [id, info] of adminChannels.entries()) {
+    obj[id] = info;
+  }
+  try {
+    writeFileSync(ADMIN_FILE, JSON.stringify(obj, null, 2));
+  } catch (e) {
+    console.error('Failed to persist admin channels', e);
+  }
+}
+
 bot.setMyCommands([
   { command: 'connect', description: 'Connect to news server' },
   { command: 'show_news', description: 'Show new news' },
@@ -59,9 +89,11 @@ bot.on('my_chat_member', (data) => {
     if (status === 'administrator' || status === 'creator') {
       adminChannels.set(data.chat.id, info);
       console.log(`Added channel ${info.username || info.title}`);
+      persistAdminChannels();
     } else if (adminChannels.has(data.chat.id)) {
       adminChannels.delete(data.chat.id);
       console.log(`Removed channel ${info.username || info.title}`);
+      persistAdminChannels();
     }
   }
 });

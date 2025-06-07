@@ -60,6 +60,10 @@ Bot commands:
 
 The bot automatically subscribes to all available sources and will send a short
 status message every 30 seconds if no new headlines arrive.
+It also remembers any channels where it has administrator rights.
+The channel list is stored in `bot/admin-channels.json` and reloaded on startup
+so `/display_channels` keeps showing previously added channels after a restart.
+An example file with the correct format is included in the `bot` folder.
 
 ### Telegram Setup
 
