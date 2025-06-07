@@ -63,7 +63,7 @@ function ensureConnection(chatId) {
     if (connections.has(chatId)) {
       return resolve();
     }
-    const es = new EventSource(`${serverUrl}/api/news?sources=${ALL_SOURCES.join(',')}`);
+    const es = new EventSource(`${serverUrl}/api/news?sources=${ALL_SOURCES.join(',')}&history=false`);
     const state = { es, show: false, seen: new Set(), lastNews: Date.now(), lastPing: Date.now(), interval: null };
     connections.set(chatId, state);
     es.onopen = () => {

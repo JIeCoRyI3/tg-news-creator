@@ -62,6 +62,7 @@ function App() {
     if (es) es.close()
     const params = new URLSearchParams()
     params.append('sources', selected.join(','))
+    params.append('history', 'true')
     const eventSource = new EventSource(`http://localhost:3001/api/news?${params}`)
     setEs(eventSource)
     eventSource.onmessage = (e) => {
