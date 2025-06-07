@@ -58,6 +58,9 @@ Bot commands:
 - `/stop` – stop sending news
 - `/disconnect` – close the connection
 
+The bot automatically subscribes to all available sources and will send a short
+status message every 30 seconds if no new headlines arrive.
+
 ### Telegram Setup
 
 To enable Telegram channel fetching without using a bot, create a `.env` file
