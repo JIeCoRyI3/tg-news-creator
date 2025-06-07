@@ -2,8 +2,8 @@
   "name": "tg-news-creator-root",
   "private": true,
   "scripts": {
-    "install-all": "npm install --prefix server && npm install --prefix client",
-    "start": "concurrently \"npm start --prefix server\" \"npm run dev --prefix client\""
+    "install-all": "npm install --prefix server && npm install --prefix client && npm install --prefix bot",
+    "start": "concurrently \"npm start --prefix server\" \"npm run dev --prefix client\" \"npm start --prefix bot\""
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
