@@ -40,6 +40,24 @@ The React UI will open on **http://localhost:3000**.
 
 Select news sources and press **Start** to start the live stream of headlines.
 
+### Telegram Bot
+
+The `bot` folder contains a simple Telegram bot that can stream the same news
+directly to a chat. Create a `.env` file inside the folder using the provided
+`.env.sample` and run it together with the server and client via:
+
+```bash
+npm run install-all
+npm start
+```
+
+Bot commands:
+
+- `/connect` – connect to the server
+- `/show-news` – ask for permission and start sending news
+- `/stop` – stop sending news
+- `/disconnect` – close the connection
+
 ### Telegram Setup
 
 To enable Telegram channel fetching without using a bot, create a `.env` file
