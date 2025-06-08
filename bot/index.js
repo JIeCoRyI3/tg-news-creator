@@ -71,7 +71,8 @@ bot.setMyCommands([
   { command: 'display_channels', description: 'List channels I can post to' },
   { command: 'post_news', description: 'Select channel to post news' },
   { command: 'stop', description: 'Stop sending news' },
-  { command: 'disconnect', description: 'Disconnect from news server' }
+  { command: 'disconnect', description: 'Disconnect from news server' },
+  { command: 'debug', description: 'Show last 2 news from each source' }
 ]);
 
 try {
@@ -180,6 +181,52 @@ function askPermission(chatId) {
   });
 }
 
+function escapeHtml(str) {
+  return str.replace(/[&<>]/g, (c) => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;');
+}
+
+function formatCaption(item) {
+  const title = `<b>${escapeHtml(item.title)}</b>`;
+  const text = item.text ? `\n\n${escapeHtml(item.text)}` : '';
+  return `${title}${text}\n\n<a href="${item.url}">Read more</a>`;
+}
+
+function fetchLatestNews() {
+  return new Promise((resolve, reject) => {
+    const url = `${serverUrl}/api/news?sources=${ALL_SOURCES.join(',')}&history=true`;
+    const es = new EventSource(url);
+    const bySource = {};
+    const expected = ALL_SOURCES.length * 2;
+    let received = 0;
+    const timeout = setTimeout(() => {
+      es.close();
+      resolve(bySource);
+    }, 15000);
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (!bySource[data.source]) bySource[data.source] = [];
+        if (bySource[data.source].length < 2) {
+          bySource[data.source].push(data);
+          received++;
+          if (received >= expected) {
+            clearTimeout(timeout);
+            es.close();
+            resolve(bySource);
+          }
+        }
+      } catch {}
+    };
+
+    es.onerror = (err) => {
+      clearTimeout(timeout);
+      es.close();
+      reject(err);
+    };
+  });
+}
+
 bot.onText(/\/show_news/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -256,5 +303,26 @@ bot.onText(/\/disconnect/, (msg) => {
     bot.sendMessage(chatId, 'Disconnected');
   } else {
     bot.sendMessage(chatId, 'Not connected');
+  }
+});
+
+bot.onText(/\/debug/, async (msg) => {
+  const chatId = msg.chat.id;
+  try {
+    const news = await fetchLatestNews();
+    for (const src of ALL_SOURCES) {
+      const items = news[src];
+      if (!items) continue;
+      for (const item of items) {
+        const caption = formatCaption(item);
+        if (item.image) {
+          await bot.sendPhoto(chatId, item.image, { caption, parse_mode: 'HTML' });
+        } else {
+          await bot.sendMessage(chatId, `${item.title}\n\n${item.text || ''}\n\n${item.url}`);
+        }
+      }
+    }
+  } catch (e) {
+    bot.sendMessage(chatId, `Error fetching news: ${e.message}`);
   }
 });
