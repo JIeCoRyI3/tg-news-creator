@@ -137,9 +137,15 @@ function ensureConnection(chatId) {
         if (data.url && state.seen.has(data.url)) return;
         if (data.url) state.seen.add(data.url);
         state.lastNews = Date.now();
-        const target = state.channelId || chatId;
-        bot.sendMessage(String(target), `\u0060\u0060\u0060\n${JSON.stringify(data, null, 2)}\n\u0060\u0060\u0060`, { parse_mode: 'Markdown' })
-          .catch(e => console.error('Failed to send message to', target, e.message));
+        const targets = [chatId];
+        if (state.channelId && state.channelId !== String(chatId)) {
+          targets.push(state.channelId);
+        }
+        const text = `*${data.title}*\n${data.url}`;
+        for (const t of targets) {
+          bot.sendMessage(String(t), text, { parse_mode: 'Markdown' })
+            .catch(e => console.error('Failed to send message to', t, e.message));
+        }
       } catch {
         // ignore
       }
