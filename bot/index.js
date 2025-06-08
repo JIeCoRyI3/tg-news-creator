@@ -35,14 +35,14 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
-// channelId -> { title, username }
+// channelId (string) -> { title, username }
 const adminChannels = new Map();
 
 try {
   const data = readFileSync(ADMIN_FILE, 'utf8');
   const obj = JSON.parse(data);
   for (const [id, info] of Object.entries(obj)) {
-    adminChannels.set(Number(id), info);
+    adminChannels.set(id, info);
   }
   if (adminChannels.size > 0) {
     console.log(`Loaded ${adminChannels.size} admin channel(s) from file`);
@@ -87,11 +87,11 @@ bot.on('my_chat_member', (data) => {
     const status = data.new_chat_member?.status;
     const info = { title: data.chat.title, username: data.chat.username ? `@${data.chat.username}` : null };
     if (status === 'administrator' || status === 'creator') {
-      adminChannels.set(data.chat.id, info);
+      adminChannels.set(String(data.chat.id), info);
       console.log(`Added channel ${info.username || info.title}`);
       persistAdminChannels();
-    } else if (adminChannels.has(data.chat.id)) {
-      adminChannels.delete(data.chat.id);
+    } else if (adminChannels.has(String(data.chat.id))) {
+      adminChannels.delete(String(data.chat.id));
       console.log(`Removed channel ${info.username || info.title}`);
       persistAdminChannels();
     }
@@ -138,7 +138,8 @@ function ensureConnection(chatId) {
         if (data.url) state.seen.add(data.url);
         state.lastNews = Date.now();
         const target = state.channelId || chatId;
-        bot.sendMessage(target, `\u0060\u0060\u0060\n${JSON.stringify(data, null, 2)}\n\u0060\u0060\u0060`, { parse_mode: 'Markdown' });
+        bot.sendMessage(String(target), `\u0060\u0060\u0060\n${JSON.stringify(data, null, 2)}\n\u0060\u0060\u0060`, { parse_mode: 'Markdown' })
+          .catch(e => console.error('Failed to send message to', target, e.message));
       } catch {
         // ignore
       }
@@ -217,7 +218,7 @@ bot.on('callback_query', (query) => {
   } else if (query.data === 'deny_news') {
     bot.answerCallbackQuery(query.id, { text: 'Permission denied' });
   } else if (query.data.startsWith('post:')) {
-    const channelId = parseInt(query.data.slice(5), 10);
+    const channelId = query.data.slice(5);
     const channel = adminChannels.get(channelId);
     const state = connections.get(chatId);
     if (state && channel) {
