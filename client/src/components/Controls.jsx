@@ -1,9 +1,9 @@
 import PropTypes from 'prop-types'
 
-export default function Controls({ startGet, startPost, stop }) {
+export default function Controls({ startGet, startPost, stop, startLabel = 'Start Getting' }) {
   return (
     <div className="controls">
-      <button onClick={startGet}>Start Getting</button>
+      <button onClick={startGet}>{startLabel}</button>
       <button onClick={startPost}>Start Posting</button>
       <button onClick={stop}>Stop</button>
     </div>
@@ -13,5 +13,6 @@ export default function Controls({ startGet, startPost, stop }) {
 Controls.propTypes = {
   startGet: PropTypes.func.isRequired,
   startPost: PropTypes.func.isRequired,
-  stop: PropTypes.func.isRequired
+  stop: PropTypes.func.isRequired,
+  startLabel: PropTypes.string
 }

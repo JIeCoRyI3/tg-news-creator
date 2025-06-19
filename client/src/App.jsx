@@ -5,6 +5,7 @@ import SourcesTable from './components/SourcesTable.jsx'
 import ModeToggle from './components/ModeToggle.jsx'
 import Controls from './components/Controls.jsx'
 import NewsList from './components/NewsList.jsx'
+import TGSources from './components/TGSources.jsx'
 
 import './App.css'
 
@@ -38,11 +39,21 @@ function App() {
   const [posting, setPosting] = useState(false)
   const [logs, setLogs] = useState([])
   const [mode, setMode] = useState('json')
+  const [tab, setTab] = useState('news')
+  const [tgUrls, setTgUrls] = useState([])
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
   const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
+  }
+
+  const addTgUrl = (url) => {
+    setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
+  }
+
+  const removeTgUrl = (url) => {
+    setTgUrls(prev => prev.filter(u => u !== url))
   }
 
   useEffect(() => {
@@ -53,12 +64,9 @@ function App() {
     channelsRef.current = selectedChannels
   }, [selectedChannels])
 
-  const connect = () => {
+  const connect = (endpoint, params) => {
     if (es) return
-    const params = new URLSearchParams()
-    params.append('sources', selected.join(','))
-    params.append('history', 'true')
-    const eventSource = new EventSource(`http://localhost:3001/api/news?${params}`)
+    const eventSource = new EventSource(`http://localhost:3001${endpoint}?${params}`)
     setEs(eventSource)
     eventSource.onmessage = (e) => {
       const item = JSON.parse(e.data)
@@ -94,7 +102,18 @@ function App() {
 
   const startGetting = () => {
     setPosting(false)
-    connect()
+    const params = new URLSearchParams()
+    params.append('sources', selected.join(','))
+    params.append('history', 'true')
+    connect('/api/news', params.toString())
+  }
+
+  const startScraping = () => {
+    setPosting(false)
+    const params = new URLSearchParams()
+    params.append('urls', tgUrls.join(','))
+    params.append('history', 'true')
+    connect('/api/tgnews', params.toString())
   }
 
   const startPosting = () => {
@@ -111,7 +130,17 @@ function App() {
         body: JSON.stringify({ channel: ch, text: 'Posting started' })
       }).catch(() => {})
     })
-    connect()
+    if (tab === 'news') {
+      const params = new URLSearchParams()
+      params.append('sources', selected.join(','))
+      params.append('history', 'true')
+      connect('/api/news', params.toString())
+    } else {
+      const params = new URLSearchParams()
+      params.append('urls', tgUrls.join(','))
+      params.append('history', 'true')
+      connect('/api/tgnews', params.toString())
+    }
   }
 
   const stop = () => {
@@ -157,11 +186,19 @@ function App() {
   return (
     <div className="App">
       <h3>News Aggregator</h3>
+      <div className="tabs">
+        <button onClick={() => setTab('news')} className={tab === 'news' ? 'active' : ''}>News Sources</button>
+        <button onClick={() => setTab('tg')} className={tab === 'tg' ? 'active' : ''}>TG Scraping</button>
+      </div>
       <Logs logs={logs} />
       <ChannelSelect channels={channels} selected={selectedChannels} setSelected={setSelectedChannels} />
-      <SourcesTable sources={sources} selected={selected} toggle={toggle} statuses={statuses} />
+      {tab === 'news' ? (
+        <SourcesTable sources={sources} selected={selected} toggle={toggle} statuses={statuses} />
+      ) : (
+        <TGSources urls={tgUrls} addUrl={addTgUrl} removeUrl={removeTgUrl} />
+      )}
       <ModeToggle mode={mode} setMode={setMode} />
-      <Controls startGet={startGetting} startPost={startPosting} stop={stop} />
+      <Controls startGet={tab === 'news' ? startGetting : startScraping} startPost={startPosting} stop={stop} startLabel={tab === 'news' ? 'Start Getting' : 'Start Scrapping'} />
       <NewsList news={news} mode={mode} />
     </div>
   )
