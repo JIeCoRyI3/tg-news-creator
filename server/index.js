@@ -127,31 +127,36 @@ async function scrapeTelegramChannel(url) {
   const pageUrl = `https://r.jina.ai/https://t.me/s/${channel}`;
   try {
     const res = await axiosInstance.get(pageUrl, { responseType: 'text', maxRedirects: 5 });
-    const $ = cheerio.load(res.data);
+    const lines = res.data.split(/\r?\n/);
     const posts = [];
-    $('.tgme_widget_message_wrap').each((_, el) => {
-      const link = $(el).find('.tgme_widget_message_date a').attr('href');
-      if (!link) return;
-      const text = $(el).find('.tgme_widget_message_text, .js-message_text').text().trim();
-      let image = $(el).find('.tgme_widget_message_photo_wrap img, .tgme_widget_message_photo img').attr('src');
-      if (!image) {
-        const style = $(el).find('.tgme_widget_message_video_thumb').attr('style');
-        if (style) {
-          const m = style.match(/url\(("|')?(.*?)("|')?\)/);
-          if (m) image = m[2];
-        }
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/\((https:\/\/t\.me\/[^/]+\/\d+)\)/);
+      if (!m) continue;
+      const link = m[1];
+      let image = null;
+      for (let j = i - 1; j >= 0; j--) {
+        const img = lines[j].match(/!\[[^\]]*\]\((https?:\/\/[^\)]+)\)/);
+        if (img) { image = img[1]; break; }
+        if (lines[j].trim() !== '' && !lines[j].startsWith('[')) break;
       }
-      const time = $(el).find('time').attr('datetime') || null;
+      const textParts = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].match(/\((https:\/\/t\.me\/[^/]+\/\d+)\)/)) break;
+        if (lines[j].startsWith('[') && lines[j].includes('](https://t.me/')) break;
+        if (/^\s*$/.test(lines[j])) { if (textParts.length) break; else continue; }
+        textParts.push(lines[j].trim());
+      }
+      const text = textParts.join(' ').trim();
       const post = {
         url: link,
         title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
         text,
         image,
-        publishedAt: time
+        publishedAt: null
       };
       log(`Scraped TG post: ${post.title} - ${post.url}`);
       posts.push(post);
-    });
+    }
     return posts.slice(-2);
   } catch (err) {
     console.error('Error scraping telegram', url, err.message);
