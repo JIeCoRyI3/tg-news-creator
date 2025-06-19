@@ -142,13 +142,15 @@ async function scrapeTelegramChannel(url) {
         }
       }
       const time = $(el).find('time').attr('datetime') || null;
-      posts.push({
+      const post = {
         url: link,
         title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
         text,
         image,
         publishedAt: time
-      });
+      };
+      log(`Scraped TG post: ${post.title} - ${post.url}`);
+      posts.push(post);
     });
     return posts.slice(-2);
   } catch (err) {
@@ -329,6 +331,7 @@ app.get('/api/tgnews', async (req, res) => {
           seen.add(item.url);
           if (!includeHistory && initial) continue;
           res.write(`data: ${JSON.stringify({ ...item, source: url })}\n\n`);
+          log(`Sent post ${item.url}`);
         }
       } catch (err) {
         console.error('Error fetching tg source', url, err.message);
