@@ -126,24 +126,39 @@ async function scrapeTelegramChannel(url) {
   try {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.waitForSelector('.tgme_widget_message_wrap');
     const posts = await page.evaluate(() => {
-      const res = [];
-      document.querySelectorAll('.tgme_widget_message_wrap').forEach(el => {
-        const link = el.querySelector('.tgme_widget_message_date a');
-        const text = el.querySelector('.tgme_widget_message_text')?.innerText || '';
-        const image = el.querySelector('.tgme_widget_message_photo_wrap img')?.src || null;
-        const time = el.querySelector('time')?.getAttribute('datetime');
-        if (link) {
-          res.push({
-            url: link.href,
-            title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
-            text,
-            image,
-            publishedAt: time
-          });
+      const results = [];
+      const nodes = Array.from(document.querySelectorAll('.tgme_widget_message_wrap'));
+      for (const el of nodes) {
+        const linkEl = el.querySelector('.tgme_widget_message_date a');
+        if (!linkEl) continue;
+        const textEl = el.querySelector('.tgme_widget_message_text, .js-message_text');
+        const text = textEl?.innerText.trim() || '';
+
+        let image = null;
+        const imgEl = el.querySelector('.tgme_widget_message_photo_wrap img, .tgme_widget_message_photo img');
+        if (imgEl?.src) {
+          image = imgEl.src;
+        } else {
+          const videoThumb = el.querySelector('.tgme_widget_message_video_thumb');
+          if (videoThumb && videoThumb.style.backgroundImage) {
+            const match = videoThumb.style.backgroundImage.match(/url\(("|')?(.*?)("|')?\)/);
+            if (match) image = match[2];
+          }
         }
-      });
-      return res.slice(-2);
+
+        const time = el.querySelector('time')?.getAttribute('datetime') || null;
+
+        results.push({
+          url: linkEl.href,
+          title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
+          text,
+          image,
+          publishedAt: time
+        });
+      }
+      return results.slice(-2);
     });
     return posts;
   } catch (err) {
