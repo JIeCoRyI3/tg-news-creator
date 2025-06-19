@@ -6,6 +6,9 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../server/.env') });
 const TelegramBot = require('node-telegram-bot-api');
+const { EventEmitter } = require('events');
+
+const botEvents = new EventEmitter();
 
 const token = process.env.BOT_TOKEN;
 if (!token) {
@@ -46,6 +49,10 @@ async function loadChannels() {
         if (res) {
           const [id, info] = res;
           adminChannels.set(id, info);
+          console.log('Resolved channel', link, '->', id);
+          botEvents.emit('log', `Resolved channel ${link} -> ${id}`);
+        } else {
+          botEvents.emit('log', `Failed to resolve channel ${link}`);
         }
       }
       persistChannels();
@@ -78,9 +85,13 @@ bot.on('my_chat_member', data => {
   if (status === 'administrator' || status === 'creator') {
     adminChannels.set(String(data.chat.id), info);
     persistChannels();
+    console.log('Gained admin rights in', data.chat.title);
+    botEvents.emit('log', `Gained admin rights in ${data.chat.title}`);
   } else if (adminChannels.has(String(data.chat.id))) {
     adminChannels.delete(String(data.chat.id));
     persistChannels();
+    console.log('Lost admin rights in', data.chat.title);
+    botEvents.emit('log', `Lost admin rights in ${data.chat.title}`);
   }
 });
 
@@ -91,10 +102,18 @@ function listChannels() {
 }
 
 async function sendMessage(channel, text) {
-  await bot.sendMessage(channel, text, { parse_mode: 'Markdown' });
+  try {
+    await bot.sendMessage(channel, text, { parse_mode: 'Markdown' });
+    console.log('Sent message to', channel);
+    botEvents.emit('log', `Sent message to ${channel}`);
+  } catch (e) {
+    console.error('Failed to send message', channel, e.message);
+    botEvents.emit('log', `Failed to send message to ${channel}: ${e.message}`);
+    throw e;
+  }
 }
 
-module.exports = { listChannels, sendMessage };
+module.exports = { listChannels, sendMessage, botEvents };
 
 (async () => {
   await loadChannels();
