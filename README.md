@@ -50,4 +50,10 @@ Create a `.env` file inside the `server` directory containing your bot token:
 BOT_TOKEN=your_bot_token
 ```
 
-The bot automatically keeps track of channels where it has administrator rights and stores them in `server/admin-channels.json`. The React client loads this list so you can choose where to post news.
+Put the Telegram channel links you want to post to in `server/admin-channels.json`:
+
+```json
+["https://t.me/mychannel"]
+```
+
+On startup the bot resolves these links to channel IDs and rewrites the file with the channel information. It also keeps track of channels where it gains administrator rights. The React client loads this list so you can choose where to post news.

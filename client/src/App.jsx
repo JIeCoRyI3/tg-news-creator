@@ -88,6 +88,7 @@ function App() {
   }
 
   const startPosting = () => {
+    if (!window.confirm('Start posting to the selected Telegram channels?')) return
     setPosting(true)
     connect()
   }
