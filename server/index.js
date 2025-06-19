@@ -9,6 +9,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
 const cheerio = require('cheerio');
+const { marked } = require('marked');
 const sources = require('./sources');
 const fs = require('fs');
 const path = require('path');
@@ -139,18 +140,24 @@ async function scrapeTelegramChannel(url) {
         if (img) { image = img[1]; break; }
         if (lines[j].trim() !== '' && !lines[j].startsWith('[')) break;
       }
-      const textParts = [];
+      const textLines = [];
       for (let j = i + 1; j < lines.length; j++) {
         if (lines[j].match(/\((https:\/\/t\.me\/[^/]+\/\d+)\)/)) break;
         if (lines[j].startsWith('[') && lines[j].includes('](https://t.me/')) break;
-        if (/^\s*$/.test(lines[j])) { if (textParts.length) break; else continue; }
-        textParts.push(lines[j].trim());
+        if (/^\s*$/.test(lines[j]) && textLines.length === 0) continue;
+        textLines.push(lines[j]);
       }
-      const text = textParts.join(' ').trim();
+      const markdown = textLines.join('\n').trim();
+      let html = marked.parse(markdown);
+      const $ = cheerio.load(html);
+      $('img[src^="blob:"]').remove();
+      html = $.html();
+      const text = $.text().replace(/\s+/g, ' ').trim();
       const post = {
         url: link,
         title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
         text,
+        html,
         image,
         publishedAt: null
       };
