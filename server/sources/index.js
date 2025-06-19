@@ -1,6 +1,4 @@
 const iconv = require('iconv-lite');
-const { fetchChannelMessages } = require('./telegram');
-const tgEnabled = process.env.TG_INTEGRATION_FF === 'true';
 
 async function fetchFeed(url, axios, parser) {
   const res = await axios.get(url, { responseType: 'arraybuffer', maxRedirects: 5 });
@@ -219,16 +217,5 @@ const sources = {
     }
   },
 };
-
-if (tgEnabled) {
-  sources.telegram = {
-    label: 'Telegram Channel',
-    fetch: async (_, __, options) => {
-      const channel = options?.channel || process.env.TELEGRAM_CHANNEL;
-      if (!channel) throw new Error('TELEGRAM_CHANNEL is not defined');
-      return fetchChannelMessages(channel);
-    }
-  };
-}
 
 module.exports = sources;

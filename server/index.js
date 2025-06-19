@@ -8,9 +8,8 @@ const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
-const TG_ENABLED = process.env.TG_INTEGRATION_FF === 'true';
 const sources = require('./sources');
-const { fetchChannelInfo } = TG_ENABLED ? require('./sources/telegram') : {};
+const { listChannels, sendMessage } = require('../bot');
 
 class Queue {
   constructor(concurrency = 2) {
@@ -43,6 +42,7 @@ class Queue {
 const scrapeQueue = new Queue(2);
 
 const app = express();
+app.use(express.json());
 const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
 const axiosInstance = axios.create(proxyUrl ? {
   httpAgent: new HttpProxyAgent(proxyUrl),
@@ -106,18 +106,20 @@ async function scrapeArticle(url) {
  *       200:
  *         description: Channel info
  */
-if (TG_ENABLED) {
-  app.get('/api/telegram-info', async (req, res) => {
-    try {
-      const { url } = req.query;
-      if (!url) return res.status(400).json({ error: 'url required' });
-      const info = await fetchChannelInfo(url);
-      res.json(info);
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-}
+app.get('/api/channels', (req, res) => {
+  res.json(listChannels());
+});
+
+app.post('/api/post', async (req, res) => {
+  try {
+    const { channel, text } = req.body;
+    if (!channel || !text) return res.status(400).json({ error: 'channel and text required' });
+    await sendMessage(channel, text);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 /**
  * @openapi
@@ -157,18 +159,11 @@ app.get('/api/news', async (req, res) => {
 
   const sendItems = async () => {
     for (const name of selected) {
-      let source = sources[name];
-      let options = {};
-      if (!source) {
-        if (TG_ENABLED && name.startsWith('tg:')) {
-          source = sources.telegram;
-          options.channel = name.slice(3);
-        }
-      }
+      const source = sources[name];
       if (!source) continue;
       try {
         res.write(`event: log\ndata: ${JSON.stringify({ message: `Fetching ${name}` })}\n\n`);
-        const items = await source.fetch(axiosInstance, parser, options);
+        const items = await source.fetch(axiosInstance, parser);
         if (status.get(name) !== 'connected') {
           res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'connected' })}\n\n`);
           status.set(name, 'connected');
