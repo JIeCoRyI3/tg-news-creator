@@ -40,7 +40,14 @@ function App() {
   const [logs, setLogs] = useState([])
   const [mode, setMode] = useState('json')
   const [tab, setTab] = useState('news')
-  const [tgUrls, setTgUrls] = useState([])
+  const [tgUrls, setTgUrls] = useState(() => {
+    const saved = localStorage.getItem('tgUrls')
+    try {
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
   const [, forceTick] = useState(0)
@@ -55,6 +62,10 @@ function App() {
   const removeTgUrl = (url) => {
     setTgUrls(prev => prev.filter(u => u !== url))
   }
+
+  useEffect(() => {
+    localStorage.setItem('tgUrls', JSON.stringify(tgUrls))
+  }, [tgUrls])
 
   useEffect(() => {
     postingRef.current = posting

@@ -255,6 +255,11 @@ app.get('/api/tgnews', async (req, res) => {
   });
   res.flushHeaders();
 
+  const logListener = (msg) => {
+    res.write(`event: log\ndata: ${JSON.stringify({ message: msg })}\n\n`);
+  };
+  botEvents.on('log', logListener);
+
   const urls = req.query.urls ? req.query.urls.split(',') : [];
   const includeHistory = req.query.history !== 'false';
   const seen = new Set();
@@ -266,6 +271,7 @@ app.get('/api/tgnews', async (req, res) => {
         log(`Scraping TG ${url}`);
         const items = await scrapeTelegramChannel(url);
         for (const item of items) {
+          log(`Found post ${item.url}`);
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           if (!includeHistory && initial) continue;
@@ -284,6 +290,7 @@ app.get('/api/tgnews', async (req, res) => {
   const interval = setInterval(sendItems, 60000);
   req.on('close', () => {
     clearInterval(interval);
+    botEvents.off('log', logListener);
   });
 });
 
