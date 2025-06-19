@@ -49,11 +49,21 @@ function App() {
   }
 
   const addTgUrl = (url) => {
-    setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
+    fetch('http://localhost:3001/api/tg-sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    }).then(() => {
+      setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
+    }).catch(() => {})
   }
 
   const removeTgUrl = (url) => {
-    setTgUrls(prev => prev.filter(u => u !== url))
+    fetch(`http://localhost:3001/api/tg-sources?url=${encodeURIComponent(url)}`, {
+      method: 'DELETE'
+    }).then(() => {
+      setTgUrls(prev => prev.filter(u => u !== url))
+    }).catch(() => {})
   }
 
   useEffect(() => {
@@ -173,6 +183,13 @@ function App() {
       forceTick(t => t + 1)
     }, 1000)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/tg-sources')
+      .then(r => r.json())
+      .then(data => setTgUrls(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {

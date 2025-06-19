@@ -10,12 +10,37 @@ const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
 const puppeteer = require('puppeteer');
 const sources = require('./sources');
+const fs = require('fs');
+const path = require('path');
 const { listChannels, sendMessage, botEvents } = require('../bot');
 
 function log(message) {
   console.log(message);
   botEvents.emit('log', message);
 }
+
+const TG_SOURCES_FILE = path.join(__dirname, 'tg-sources.json');
+let tgSources = [];
+
+function loadTgSources() {
+  try {
+    const data = fs.readFileSync(TG_SOURCES_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) tgSources = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load tg sources', e);
+  }
+}
+
+function saveTgSources() {
+  try {
+    fs.writeFileSync(TG_SOURCES_FILE, JSON.stringify(tgSources, null, 2));
+  } catch (e) {
+    console.error('Failed to save tg sources', e);
+  }
+}
+
+loadTgSources();
 
 class Queue {
   constructor(concurrency = 2) {
@@ -163,6 +188,31 @@ app.post('/api/post', async (req, res) => {
   }
 });
 
+app.get('/api/tg-sources', (req, res) => {
+  res.json(tgSources);
+});
+
+app.post('/api/tg-sources', (req, res) => {
+  const { url } = req.body;
+  if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
+  if (!tgSources.includes(url)) {
+    tgSources.push(url);
+    saveTgSources();
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/tg-sources', (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  const idx = tgSources.indexOf(url);
+  if (idx !== -1) {
+    tgSources.splice(idx, 1);
+    saveTgSources();
+  }
+  res.json({ ok: true });
+});
+
 /**
  * @openapi
  * /api/news:
@@ -255,7 +305,12 @@ app.get('/api/tgnews', async (req, res) => {
   });
   res.flushHeaders();
 
-  const urls = req.query.urls ? req.query.urls.split(',') : [];
+  const logListener = (msg) => {
+    res.write(`event: log\ndata: ${JSON.stringify({ message: msg })}\n\n`);
+  };
+  botEvents.on('log', logListener);
+
+  const urls = req.query.urls ? req.query.urls.split(',') : tgSources;
   const includeHistory = req.query.history !== 'false';
   const seen = new Set();
   let initial = true;
@@ -266,6 +321,7 @@ app.get('/api/tgnews', async (req, res) => {
         log(`Scraping TG ${url}`);
         const items = await scrapeTelegramChannel(url);
         for (const item of items) {
+          log(`Found post ${item.url}`);
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           if (!includeHistory && initial) continue;
@@ -284,6 +340,7 @@ app.get('/api/tgnews', async (req, res) => {
   const interval = setInterval(sendItems, 60000);
   req.on('close', () => {
     clearInterval(interval);
+    botEvents.off('log', logListener);
   });
 });
 
