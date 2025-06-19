@@ -8,6 +8,7 @@ const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
+const puppeteer = require('puppeteer');
 const sources = require('./sources');
 const { listChannels, sendMessage, botEvents } = require('../bot');
 
@@ -92,6 +93,39 @@ async function scrapeArticle(url) {
   } catch (err) {
     console.error('Error scraping', url, err.message);
     return { text: null, html: null, image: null };
+  }
+}
+
+async function scrapeTelegramChannel(url) {
+  const browser = await puppeteer.launch({ headless: 'new' });
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'networkidle2' });
+    const posts = await page.evaluate(() => {
+      const res = [];
+      document.querySelectorAll('.tgme_widget_message_wrap').forEach(el => {
+        const link = el.querySelector('.tgme_widget_message_date a');
+        const text = el.querySelector('.tgme_widget_message_text')?.innerText || '';
+        const image = el.querySelector('.tgme_widget_message_photo_wrap img')?.src || null;
+        const time = el.querySelector('time')?.getAttribute('datetime');
+        if (link) {
+          res.push({
+            url: link.href,
+            title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
+            text,
+            image,
+            publishedAt: time
+          });
+        }
+      });
+      return res.slice(-2);
+    });
+    return posts;
+  } catch (err) {
+    console.error('Error scraping telegram', url, err.message);
+    return [];
+  } finally {
+    await browser.close();
   }
 }
 
@@ -210,6 +244,46 @@ app.get('/api/news', async (req, res) => {
   req.on('close', () => {
     clearInterval(interval);
     botEvents.off('log', logListener);
+  });
+});
+
+app.get('/api/tgnews', async (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive'
+  });
+  res.flushHeaders();
+
+  const urls = req.query.urls ? req.query.urls.split(',') : [];
+  const includeHistory = req.query.history !== 'false';
+  const seen = new Set();
+  let initial = true;
+
+  const sendItems = async () => {
+    for (const url of urls) {
+      try {
+        log(`Scraping TG ${url}`);
+        const items = await scrapeTelegramChannel(url);
+        for (const item of items) {
+          if (seen.has(item.url)) continue;
+          seen.add(item.url);
+          if (!includeHistory && initial) continue;
+          res.write(`data: ${JSON.stringify({ ...item, source: url })}\n\n`);
+        }
+      } catch (err) {
+        console.error('Error fetching tg source', url, err.message);
+      } finally {
+        res.write(`event: ping\ndata: ${JSON.stringify({ source: url, time: Date.now() })}\n\n`);
+      }
+    }
+  };
+
+  await sendItems();
+  initial = false;
+  const interval = setInterval(sendItems, 60000);
+  req.on('close', () => {
+    clearInterval(interval);
   });
 });
 

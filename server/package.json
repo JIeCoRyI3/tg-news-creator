@@ -24,6 +24,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "node-telegram-bot-api": "^0.61.0",
-    "unfluff": "^3.2.0"
+    "unfluff": "^3.2.0",
+    "puppeteer": "^21.3.8"
   }
 }
