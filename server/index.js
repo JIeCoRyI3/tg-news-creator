@@ -125,46 +125,45 @@ async function scrapeArticle(url) {
 async function scrapeTelegramChannel(url) {
   const match = url.match(/t\.me(?:\/s)?\/([^/?]+)/i);
   const channel = match ? match[1] : url.replace(/^@/, '');
-  const pageUrl = `https://r.jina.ai/https://t.me/s/${channel}`;
+  const pageUrl = `https://t.me/s/${channel}`;
   try {
     const res = await axiosInstance.get(pageUrl, { responseType: 'text', maxRedirects: 5 });
-    const lines = res.data.split(/\r?\n/);
+    const $ = cheerio.load(res.data);
+    const messages = $('.js-widget_message').filter((_, el) => !$(el).hasClass('service_message')).slice(-2);
     const posts = [];
-    for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/\((https:\/\/t\.me\/[^/]+\/\d+)\)/);
-      if (!m) continue;
-      const link = m[1];
-      let image = null;
-      for (let j = i - 1; j >= 0; j--) {
-        const img = lines[j].match(/!\[[^\]]*\]\((https?:\/\/[^\)]+)\)/);
-        if (img) { image = img[1]; break; }
-        if (lines[j].trim() !== '' && !lines[j].startsWith('[')) break;
-      }
-      const textLines = [];
-      for (let j = i + 1; j < lines.length; j++) {
-        if (lines[j].match(/\((https:\/\/t\.me\/[^/]+\/\d+)\)/)) break;
-        if (lines[j].startsWith('[') && lines[j].includes('](https://t.me/')) break;
-        if (/^\s*$/.test(lines[j]) && textLines.length === 0) continue;
-        textLines.push(lines[j]);
-      }
-      const markdown = textLines.join('\n').trim();
-      let html = marked.parse(markdown);
-      const $ = cheerio.load(html);
-      $('img[src^="blob:"]').remove();
-      html = $.html();
-      const text = $.text().replace(/\s+/g, ' ').trim();
+    messages.each((_, el) => {
+      const postPath = $(el).attr('data-post');
+      if (!postPath) return;
+      const link = `https://t.me/${postPath}`;
+      const textEl = $(el).find('.tgme_widget_message_text');
+      const html = textEl.html() || '';
+      const text = textEl.text().replace(/\s+/g, ' ').trim();
+      const media = [];
+      $(el).find('a.tgme_widget_message_photo_wrap, video, img').each((_, m) => {
+        const mm = $(m);
+        if (mm.is('a')) {
+          const style = mm.attr('style') || '';
+          const m2 = /url\('([^']+)'\)/.exec(style);
+          if (m2) media.push(m2[1]);
+        } else {
+          const src = mm.attr('src');
+          if (src && !src.startsWith('data:')) media.push(src);
+        }
+      });
+      const time = $(el).find('.tgme_widget_message_date time').attr('datetime') || null;
       const post = {
         url: link,
         title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
         text,
         html,
-        image,
-        publishedAt: null
+        media,
+        image: media[0] || null,
+        publishedAt: time
       };
       log(`Scraped TG post: ${post.title} - ${post.url}`);
       posts.push(post);
-    }
-    return posts.slice(-2);
+    });
+    return posts;
   } catch (err) {
     console.error('Error scraping telegram', url, err.message);
     return [];

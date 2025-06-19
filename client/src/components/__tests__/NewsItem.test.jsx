@@ -8,6 +8,7 @@ describe('NewsItem', () => {
     text: 'text',
     html: '<p>text</p>',
     image: 'img.jpg',
+    media: ['img.jpg'],
     publishedAt: new Date('2024-01-01').toISOString()
   }
 
