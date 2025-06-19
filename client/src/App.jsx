@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import Logs from './components/Logs.jsx'
-import TelegramInput from './components/TelegramInput.jsx'
+import ChannelSelect from './components/ChannelSelect.jsx'
 import SourcesTable from './components/SourcesTable.jsx'
 import ModeToggle from './components/ModeToggle.jsx'
 import Controls from './components/Controls.jsx'
 import NewsList from './components/NewsList.jsx'
 
-const TG_ENABLED = import.meta.env.VITE_TG_INTEGRATION_FF === 'true'
 import './App.css'
 
 const INITIAL_SOURCES = {
@@ -34,7 +33,9 @@ function App() {
   const [es, setEs] = useState(null)
   const [statuses, setStatuses] = useState({})
   const [sources, setSources] = useState(INITIAL_SOURCES)
-  const [channelUrl, setChannelUrl] = useState('')
+  const [channels, setChannels] = useState([])
+  const [selectedChannels, setSelectedChannels] = useState([])
+  const [posting, setPosting] = useState(false)
   const [logs, setLogs] = useState([])
   const [mode, setMode] = useState('json')
   const [, forceTick] = useState(0)
@@ -42,24 +43,8 @@ function App() {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
   }
 
-  const addChannel = async () => {
-    if (!TG_ENABLED) return
-    const url = channelUrl.trim()
-    if (!url) return
-    try {
-      const resp = await fetch(`http://localhost:3001/api/telegram-info?url=${encodeURIComponent(url)}`)
-      const data = await resp.json()
-      if (data.username) {
-        const id = `tg:${data.username.replace(/^@/, '')}`
-        setSources(prev => ({ ...prev, [id]: data.title }))
-        setChannelUrl('')
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-  const start = () => {
-    if (es) es.close()
+  const connect = () => {
+    if (es) return
     const params = new URLSearchParams()
     params.append('sources', selected.join(','))
     params.append('history', 'true')
@@ -69,6 +54,15 @@ function App() {
       const item = JSON.parse(e.data)
       setNews(prev => [item, ...prev])
       setStatuses(prev => ({ ...prev, [item.source]: { ...(prev[item.source] || {}), lastPing: Date.now() } }))
+      if (posting) {
+        selectedChannels.forEach(ch => {
+          fetch('http://localhost:3001/api/post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: ch, text: `*${item.title}*\n${item.url}` })
+          }).catch(() => {})
+        })
+      }
     }
     eventSource.addEventListener('status', (e) => {
       const data = JSON.parse(e.data)
@@ -88,11 +82,22 @@ function App() {
     }
   }
 
+  const startGetting = () => {
+    setPosting(false)
+    connect()
+  }
+
+  const startPosting = () => {
+    setPosting(true)
+    connect()
+  }
+
   const stop = () => {
     if (es) {
       es.close()
       setEs(null)
     }
+    setPosting(false)
     setNews([])
     setStatuses({})
     setLogs([])
@@ -109,16 +114,23 @@ function App() {
     }, 1000)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/channels')
+      .then(r => r.json())
+      .then(data => {
+        const arr = Object.entries(data).map(([id, info]) => ({ id, ...info }))
+        setChannels(arr)
+      }).catch(() => {})
+  }, [])
   return (
     <div className="App">
       <h3>News Aggregator</h3>
       <Logs logs={logs} />
-      {TG_ENABLED && (
-        <TelegramInput channelUrl={channelUrl} setChannelUrl={setChannelUrl} addChannel={addChannel} />
-      )}
+      <ChannelSelect channels={channels} selected={selectedChannels} setSelected={setSelectedChannels} />
       <SourcesTable sources={sources} selected={selected} toggle={toggle} statuses={statuses} />
       <ModeToggle mode={mode} setMode={setMode} />
-      <Controls start={start} stop={stop} />
+      <Controls startGet={startGetting} startPost={startPosting} stop={stop} />
       <NewsList news={news} mode={mode} />
     </div>
   )
