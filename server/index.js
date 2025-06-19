@@ -9,7 +9,12 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
 const sources = require('./sources');
-const { listChannels, sendMessage } = require('../bot');
+const { listChannels, sendMessage, botEvents } = require('../bot');
+
+function log(message) {
+  console.log(message);
+  botEvents.emit('log', message);
+}
 
 class Queue {
   constructor(concurrency = 2) {
@@ -114,9 +119,12 @@ app.post('/api/post', async (req, res) => {
   try {
     const { channel, text } = req.body;
     if (!channel || !text) return res.status(400).json({ error: 'channel and text required' });
+    log(`Posting to ${channel}`);
     await sendMessage(channel, text);
+    log(`Posted to ${channel}`);
     res.json({ ok: true });
   } catch (e) {
+    log(`Failed posting to ${req.body.channel}: ${e.message}`);
     res.status(500).json({ error: e.message });
   }
 });
@@ -150,6 +158,11 @@ app.get('/api/news', async (req, res) => {
   });
   res.flushHeaders();
 
+  const logListener = (msg) => {
+    res.write(`event: log\ndata: ${JSON.stringify({ message: msg })}\n\n`);
+  };
+  botEvents.on('log', logListener);
+
   const selected = req.query.sources ? req.query.sources.split(',') : [];
   const includeHistory = req.query.history !== 'false';
   const parser = new Parser();
@@ -162,7 +175,7 @@ app.get('/api/news', async (req, res) => {
       const source = sources[name];
       if (!source) continue;
       try {
-        res.write(`event: log\ndata: ${JSON.stringify({ message: `Fetching ${name}` })}\n\n`);
+        log(`Fetching ${name}`);
         const items = await source.fetch(axiosInstance, parser);
         if (status.get(name) !== 'connected') {
           res.write(`event: status\ndata: ${JSON.stringify({ source: name, status: 'connected' })}\n\n`);
@@ -172,7 +185,7 @@ app.get('/api/news', async (req, res) => {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           if (!includeHistory && initial) continue;
-          res.write(`event: log\ndata: ${JSON.stringify({ message: `Scraping ${item.url}` })}\n\n`);
+          log(`Scraping ${item.url}`);
           const scraped = await scrapeQueue.add(() => scrapeArticle(item.url));
           item.text = scraped.text || item.text;
           item.html = scraped.html || item.html;
@@ -196,9 +209,10 @@ app.get('/api/news', async (req, res) => {
   const interval = setInterval(sendItems, 60000);
   req.on('close', () => {
     clearInterval(interval);
+    botEvents.off('log', logListener);
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  log(`Server running on port ${PORT}`);
 });
