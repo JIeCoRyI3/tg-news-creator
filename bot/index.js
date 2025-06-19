@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
+const dotenv = require('dotenv');
+// Load env from project root and server directory so the bot works
+// regardless of the current working directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../server/.env') });
 const TelegramBot = require('node-telegram-bot-api');
 
 const token = process.env.BOT_TOKEN;
