@@ -123,6 +123,37 @@ async function scrapeArticle(url) {
   }
 }
 
+async function scrapeTelegramPost(link) {
+  const single = link.includes('?') ? `${link}&single` : `${link}?single`;
+  try {
+    const res = await axiosInstance.get(single, { responseType: 'text', maxRedirects: 5 });
+    const $ = cheerio.load(res.data);
+    const textEl = $('.tgme_widget_message_text');
+    const html = textEl.html() || '';
+    const text = textEl.text().replace(/\s+/g, ' ').trim();
+    const media = [];
+    $('a.tgme_widget_message_photo_wrap, a.tgme_widget_message_video_player, video, source, img')
+      .each((_, m) => {
+        const mm = $(m);
+        if (mm.closest('.tgme_widget_message_user').length) return;
+        let url;
+        if (mm.is('a')) {
+          const style = mm.attr('style') || '';
+          const m2 = /url\('([^']+)'\)/.exec(style);
+          if (m2) url = m2[1];
+        } else {
+          url = mm.attr('src') || mm.attr('data-src');
+        }
+        if (url && !url.startsWith('data:') && !media.includes(url)) media.push(url);
+      });
+    const time = $('.tgme_widget_message_date time').attr('datetime') || null;
+    return { text, html, media, image: media[0] || null, publishedAt: time };
+  } catch (err) {
+    console.error('Error scraping telegram post', link, err.message);
+    return null;
+  }
+}
+
 async function scrapeTelegramChannel(url) {
   const match = url.match(/t\.me(?:\/s)?\/([^/?]+)/i);
   const channel = match ? match[1] : url.replace(/^@/, '');
@@ -159,7 +190,7 @@ async function scrapeTelegramChannel(url) {
     const channelImage = $('meta[property="og:image"]').attr('content') || null;
     const messages = $('.js-widget_message').filter((_, el) => !$(el).hasClass('service_message')).slice(-2);
     const posts = [];
-    messages.each((_, el) => {
+    for (const el of messages.toArray()) {
       const postPath = $(el).attr('data-post');
       if (!postPath) return;
       const link = `https://t.me/${postPath}`;
@@ -196,9 +227,20 @@ async function scrapeTelegramChannel(url) {
         channelTitle,
         channelImage
       };
+      if (post.media.some(m => m.endsWith('.mp4'))) {
+        try {
+          const extra = await scrapeTelegramPost(link);
+          if (extra && Array.isArray(extra.media) && extra.media.length) {
+            post.media = extra.media;
+            post.image = extra.image || post.image;
+          }
+        } catch (e) {
+          console.error('Failed to rescrape post', link, e.message);
+        }
+      }
       log(`Scraped TG post: ${post.title} - ${post.url}`);
       posts.push(post);
-    });
+    }
     return posts;
   } catch (err) {
     console.error('Error scraping telegram', url, err.message);
