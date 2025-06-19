@@ -58,12 +58,6 @@
   margin-bottom: 0.5rem;
 }
 
-.tg-post-header img {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
-}
 
 .tg-post-channel {
   font-weight: bold;
@@ -80,6 +74,13 @@
   object-fit: cover;
   border-radius: 4px;
   margin-bottom: 0.5rem;
+}
+
+.tg-post-header img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .tg-post-text {

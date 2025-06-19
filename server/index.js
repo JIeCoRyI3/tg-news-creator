@@ -10,6 +10,7 @@ const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
 const cheerio = require('cheerio');
 const { marked } = require('marked');
+const { telegram_scraper } = require('telegram-scraper');
 const sources = require('./sources');
 const fs = require('fs');
 const path = require('path');
@@ -125,6 +126,31 @@ async function scrapeArticle(url) {
 async function scrapeTelegramChannel(url) {
   const match = url.match(/t\.me(?:\/s)?\/([^/?]+)/i);
   const channel = match ? match[1] : url.replace(/^@/, '');
+  try {
+    const result = await telegram_scraper(channel);
+    if (Array.isArray(result) && result.length) {
+      const posts = result.slice(-2).map(p => {
+        const media = [...(p.message_photo || []), ...(p.message_video || [])];
+        const text = p.message_text || '';
+        return {
+          url: p.message_url,
+          title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
+          text,
+          html: text ? marked.parse(text) : '',
+          media,
+          image: media[0] || null,
+          publishedAt: p.datetime || null,
+          channelTitle: p.user_name || channel,
+          channelImage: p.user_photo || null
+        };
+      });
+      posts.forEach(p => log(`Scraped TG post: ${p.title} - ${p.url}`));
+      return posts;
+    }
+  } catch (err) {
+    console.error('Error scraping telegram via library', channel, err.message);
+  }
+
   const pageUrl = `https://t.me/s/${channel}`;
   try {
     const res = await axiosInstance.get(pageUrl, { responseType: 'text', maxRedirects: 5 });
