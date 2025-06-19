@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Logs from './components/Logs.jsx'
 import ChannelSelect from './components/ChannelSelect.jsx'
 import SourcesTable from './components/SourcesTable.jsx'
@@ -38,10 +38,20 @@ function App() {
   const [posting, setPosting] = useState(false)
   const [logs, setLogs] = useState([])
   const [mode, setMode] = useState('json')
+  const postingRef = useRef(posting)
+  const channelsRef = useRef(selectedChannels)
   const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
   }
+
+  useEffect(() => {
+    postingRef.current = posting
+  }, [posting])
+
+  useEffect(() => {
+    channelsRef.current = selectedChannels
+  }, [selectedChannels])
 
   const connect = () => {
     if (es) return
@@ -54,8 +64,8 @@ function App() {
       const item = JSON.parse(e.data)
       setNews(prev => [item, ...prev])
       setStatuses(prev => ({ ...prev, [item.source]: { ...(prev[item.source] || {}), lastPing: Date.now() } }))
-      if (posting) {
-        selectedChannels.forEach(ch => {
+      if (postingRef.current) {
+        channelsRef.current.forEach(ch => {
           fetch('http://localhost:3001/api/post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,8 +98,19 @@ function App() {
   }
 
   const startPosting = () => {
+    if (posting) {
+      window.alert('Posting is already started')
+      return
+    }
     if (!window.confirm('Start posting to the selected Telegram channels?')) return
     setPosting(true)
+    selectedChannels.forEach(ch => {
+      fetch('http://localhost:3001/api/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: ch, text: 'Posting started' })
+      }).catch(() => {})
+    })
     connect()
   }
 
@@ -97,6 +118,15 @@ function App() {
     if (es) {
       es.close()
       setEs(null)
+    }
+    if (postingRef.current) {
+      channelsRef.current.forEach(ch => {
+        fetch('http://localhost:3001/api/post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: ch, text: 'Posting ended' })
+        }).catch(() => {})
+      })
     }
     setPosting(false)
     setNews([])
