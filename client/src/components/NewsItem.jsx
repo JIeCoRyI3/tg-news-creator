@@ -7,6 +7,10 @@ export default function NewsItem({ item, mode }) {
         <pre>{JSON.stringify(item, null, 2)}</pre>
       ) : (
         <div className="tg-post">
+          <div className="tg-post-header">
+            {item.channelImage && <img src={item.channelImage} alt="" />}
+            <span className="tg-post-channel">{item.channelTitle}</span>
+          </div>
           <div className="tg-post-title">{item.title}</div>
           {(item.media?.[0] || item.image) && (
             <img src={item.media?.[0] || item.image} alt="" />

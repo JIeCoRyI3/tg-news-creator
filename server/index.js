@@ -129,6 +129,8 @@ async function scrapeTelegramChannel(url) {
   try {
     const res = await axiosInstance.get(pageUrl, { responseType: 'text', maxRedirects: 5 });
     const $ = cheerio.load(res.data);
+    const channelTitle = $('meta[property="og:title"]').attr('content') || channel;
+    const channelImage = $('meta[property="og:image"]').attr('content') || null;
     const messages = $('.js-widget_message').filter((_, el) => !$(el).hasClass('service_message')).slice(-2);
     const posts = [];
     messages.each((_, el) => {
@@ -141,6 +143,7 @@ async function scrapeTelegramChannel(url) {
       const media = [];
       $(el).find('a.tgme_widget_message_photo_wrap, video, img').each((_, m) => {
         const mm = $(m);
+        if (mm.closest('.tgme_widget_message_user').length) return;
         if (mm.is('a')) {
           const style = mm.attr('style') || '';
           const m2 = /url\('([^']+)'\)/.exec(style);
@@ -158,7 +161,9 @@ async function scrapeTelegramChannel(url) {
         html,
         media,
         image: media[0] || null,
-        publishedAt: time
+        publishedAt: time,
+        channelTitle,
+        channelImage
       };
       log(`Scraped TG post: ${post.title} - ${post.url}`);
       posts.push(post);
