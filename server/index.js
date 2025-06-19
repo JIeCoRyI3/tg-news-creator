@@ -8,7 +8,7 @@ const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const iconv = require('iconv-lite');
-const puppeteer = require('puppeteer');
+const cheerio = require('cheerio');
 const sources = require('./sources');
 const fs = require('fs');
 const path = require('path');
@@ -122,50 +122,38 @@ async function scrapeArticle(url) {
 }
 
 async function scrapeTelegramChannel(url) {
-  const browser = await puppeteer.launch({ headless: 'new' });
+  const match = url.match(/t\.me(?:\/s)?\/([^/?]+)/i);
+  const channel = match ? match[1] : url.replace(/^@/, '');
+  const pageUrl = `https://r.jina.ai/https://t.me/s/${channel}`;
   try {
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    await page.waitForSelector('.tgme_widget_message_wrap');
-    const posts = await page.evaluate(() => {
-      const results = [];
-      const nodes = Array.from(document.querySelectorAll('.tgme_widget_message_wrap'));
-      for (const el of nodes) {
-        const linkEl = el.querySelector('.tgme_widget_message_date a');
-        if (!linkEl) continue;
-        const textEl = el.querySelector('.tgme_widget_message_text, .js-message_text');
-        const text = textEl?.innerText.trim() || '';
-
-        let image = null;
-        const imgEl = el.querySelector('.tgme_widget_message_photo_wrap img, .tgme_widget_message_photo img');
-        if (imgEl?.src) {
-          image = imgEl.src;
-        } else {
-          const videoThumb = el.querySelector('.tgme_widget_message_video_thumb');
-          if (videoThumb && videoThumb.style.backgroundImage) {
-            const match = videoThumb.style.backgroundImage.match(/url\(("|')?(.*?)("|')?\)/);
-            if (match) image = match[2];
-          }
+    const res = await axiosInstance.get(pageUrl, { responseType: 'text', maxRedirects: 5 });
+    const $ = cheerio.load(res.data);
+    const posts = [];
+    $('.tgme_widget_message_wrap').each((_, el) => {
+      const link = $(el).find('.tgme_widget_message_date a').attr('href');
+      if (!link) return;
+      const text = $(el).find('.tgme_widget_message_text, .js-message_text').text().trim();
+      let image = $(el).find('.tgme_widget_message_photo_wrap img, .tgme_widget_message_photo img').attr('src');
+      if (!image) {
+        const style = $(el).find('.tgme_widget_message_video_thumb').attr('style');
+        if (style) {
+          const m = style.match(/url\(("|')?(.*?)("|')?\)/);
+          if (m) image = m[2];
         }
-
-        const time = el.querySelector('time')?.getAttribute('datetime') || null;
-
-        results.push({
-          url: linkEl.href,
-          title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
-          text,
-          image,
-          publishedAt: time
-        });
       }
-      return results.slice(-2);
+      const time = $(el).find('time').attr('datetime') || null;
+      posts.push({
+        url: link,
+        title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
+        text,
+        image,
+        publishedAt: time
+      });
     });
-    return posts;
+    return posts.slice(-2);
   } catch (err) {
     console.error('Error scraping telegram', url, err.message);
     return [];
-  } finally {
-    await browser.close();
   }
 }
 
