@@ -185,10 +185,23 @@ function escapeHtml(str) {
   return str.replace(/[&<>]/g, (c) => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;');
 }
 
+const CAPTION_LIMIT = 1024;
+
 function formatCaption(item) {
   const title = `<b>${escapeHtml(item.title)}</b>`;
-  const text = item.text ? `\n\n${escapeHtml(item.text)}` : '';
-  return `${title}${text}\n\n<a href="${item.url}">Read more</a>`;
+  const textPart = item.text ? `\n\n${escapeHtml(item.text)}` : '';
+  const urlPart = `\n\n<a href="${item.url}">Read more</a>`;
+  let caption = `${title}${textPart}${urlPart}`;
+  if (caption.length > CAPTION_LIMIT) {
+    const allowedText = CAPTION_LIMIT - (title.length + urlPart.length);
+    if (allowedText > 0) {
+      const truncated = escapeHtml(item.text).slice(0, allowedText - 3) + '...';
+      caption = `${title}\n\n${truncated}${urlPart}`;
+    } else {
+      caption = `${title}${urlPart}`;
+    }
+  }
+  return caption;
 }
 
 function fetchLatestNews() {
