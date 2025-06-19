@@ -43,6 +43,7 @@ function App() {
   const [tgUrls, setTgUrls] = useState([])
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
+  const tabRef = useRef(tab)
   const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
@@ -74,6 +75,10 @@ function App() {
     channelsRef.current = selectedChannels
   }, [selectedChannels])
 
+  useEffect(() => {
+    tabRef.current = tab
+  }, [tab])
+
   const connect = (endpoint, params) => {
     if (es) return
     const eventSource = new EventSource(`http://localhost:3001${endpoint}?${params}`)
@@ -83,11 +88,14 @@ function App() {
       setNews(prev => [item, ...prev])
       setStatuses(prev => ({ ...prev, [item.source]: { ...(prev[item.source] || {}), lastPing: Date.now() } }))
       if (postingRef.current) {
+        const msg = tabRef.current === 'tg'
+          ? `${item.text || item.title}\n${item.url}`
+          : `*${item.title}*\n${item.url}`
         channelsRef.current.forEach(ch => {
           fetch('http://localhost:3001/api/post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel: ch, text: `*${item.title}*\n${item.url}` })
+            body: JSON.stringify({ channel: ch, text: msg })
           }).catch(() => {})
         })
       }
