@@ -13,14 +13,46 @@ const ADMIN_FILE = path.join(__dirname, '../server/admin-channels.json');
 const bot = new TelegramBot(token, { polling: true });
 
 const adminChannels = new Map();
-try {
-  const data = fs.readFileSync(ADMIN_FILE, 'utf8');
-  const obj = JSON.parse(data);
-  for (const [id, info] of Object.entries(obj)) {
-    adminChannels.set(id, info);
+
+async function resolveLink(link) {
+  const match = link.match(/t\.me\/(.+)/i);
+  let identifier = link;
+  if (match) {
+    identifier = match[1].split(/[/?]/)[0];
+    if (!identifier.startsWith('@') && !identifier.startsWith('+')) {
+      identifier = '@' + identifier;
+    }
   }
-} catch (e) {
-  if (e.code !== 'ENOENT') console.error('Failed to load admin channels', e);
+  try {
+    const chat = await bot.getChat(identifier);
+    return [String(chat.id), { title: chat.title, username: chat.username ? `@${chat.username}` : null }];
+  } catch (e) {
+    console.error('Failed to resolve channel', link, e.message);
+    return null;
+  }
+}
+
+async function loadChannels() {
+  try {
+    const data = fs.readFileSync(ADMIN_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      for (const link of parsed) {
+        const res = await resolveLink(link);
+        if (res) {
+          const [id, info] = res;
+          adminChannels.set(id, info);
+        }
+      }
+      persistChannels();
+    } else {
+      for (const [id, info] of Object.entries(parsed)) {
+        adminChannels.set(id, info);
+      }
+    }
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load admin channels', e);
+  }
 }
 
 function persistChannels() {
@@ -59,3 +91,7 @@ async function sendMessage(channel, text) {
 }
 
 module.exports = { listChannels, sendMessage };
+
+(async () => {
+  await loadChannels();
+})();
