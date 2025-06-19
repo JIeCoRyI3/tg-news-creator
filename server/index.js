@@ -141,18 +141,23 @@ async function scrapeTelegramChannel(url) {
       const html = textEl.html() || '';
       const text = textEl.text().replace(/\s+/g, ' ').trim();
       const media = [];
-      $(el).find('a.tgme_widget_message_photo_wrap, video, img').each((_, m) => {
-        const mm = $(m);
-        if (mm.closest('.tgme_widget_message_user').length) return;
-        if (mm.is('a')) {
-          const style = mm.attr('style') || '';
-          const m2 = /url\('([^']+)'\)/.exec(style);
-          if (m2) media.push(m2[1]);
-        } else {
-          const src = mm.attr('src');
-          if (src && !src.startsWith('data:')) media.push(src);
-        }
-      });
+      $(el)
+        .find(
+          'a.tgme_widget_message_photo_wrap, a.tgme_widget_message_video_player, video, source, img'
+        )
+        .each((_, m) => {
+          const mm = $(m);
+          if (mm.closest('.tgme_widget_message_user').length) return;
+          let url;
+          if (mm.is('a')) {
+            const style = mm.attr('style') || '';
+            const m2 = /url\('([^']+)'\)/.exec(style);
+            if (m2) url = m2[1];
+          } else {
+            url = mm.attr('src') || mm.attr('data-src');
+          }
+          if (url && !url.startsWith('data:') && !media.includes(url)) media.push(url);
+        });
       const time = $(el).find('.tgme_widget_message_date time').attr('datetime') || null;
       const post = {
         url: link,
