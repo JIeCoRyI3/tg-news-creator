@@ -113,7 +113,31 @@ async function sendMessage(channel, text) {
   }
 }
 
-module.exports = { listChannels, sendMessage, botEvents };
+async function sendPhoto(channel, url, caption) {
+  try {
+    await bot.sendPhoto(channel, url, { caption, parse_mode: 'Markdown' });
+    console.log('Sent photo to', channel);
+    botEvents.emit('log', `Sent photo to ${channel}`);
+  } catch (e) {
+    console.error('Failed to send photo', channel, e.message);
+    botEvents.emit('log', `Failed to send photo to ${channel}: ${e.message}`);
+    throw e;
+  }
+}
+
+async function sendVideo(channel, url, caption) {
+  try {
+    await bot.sendVideo(channel, url, { caption, parse_mode: 'Markdown' });
+    console.log('Sent video to', channel);
+    botEvents.emit('log', `Sent video to ${channel}`);
+  } catch (e) {
+    console.error('Failed to send video', channel, e.message);
+    botEvents.emit('log', `Failed to send video to ${channel}: ${e.message}`);
+    throw e;
+  }
+}
+
+module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents };
 
 (async () => {
   await loadChannels();

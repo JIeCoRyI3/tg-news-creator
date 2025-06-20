@@ -91,11 +91,12 @@ function App() {
         const msg = tabRef.current === 'tg'
           ? `${item.text || item.title}\n${item.url}`
           : `*${item.title}*\n${item.url}`
+        const media = item.media?.find(m => m.endsWith('.mp4')) || item.media?.[0]
         channelsRef.current.forEach(ch => {
           fetch('http://localhost:3001/api/post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel: ch, text: msg })
+            body: JSON.stringify({ channel: ch, text: msg, media })
           }).catch(() => {})
         })
       }

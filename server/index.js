@@ -14,7 +14,7 @@ const { telegram_scraper } = require('telegram-scraper');
 const sources = require('./sources');
 const fs = require('fs');
 const path = require('path');
-const { listChannels, sendMessage, botEvents } = require('../bot');
+const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents } = require('../bot');
 
 function log(message) {
   console.log(message);
@@ -263,10 +263,19 @@ app.get('/api/channels', (req, res) => {
 
 app.post('/api/post', async (req, res) => {
   try {
-    const { channel, text } = req.body;
-    if (!channel || !text) return res.status(400).json({ error: 'channel and text required' });
+    const { channel, text, media } = req.body;
+    if (!channel) return res.status(400).json({ error: 'channel required' });
+    if (!text && !media) return res.status(400).json({ error: 'text or media required' });
     log(`Posting to ${channel}`);
-    await sendMessage(channel, text);
+    if (media) {
+      if (media.toLowerCase().endsWith('.mp4')) {
+        await sendVideo(channel, media, text);
+      } else {
+        await sendPhoto(channel, media, text);
+      }
+    } else {
+      await sendMessage(channel, text);
+    }
     log(`Posted to ${channel}`);
     res.json({ ok: true });
   } catch (e) {

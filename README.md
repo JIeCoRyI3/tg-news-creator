@@ -57,3 +57,19 @@ Put the Telegram channel links you want to post to in `server/admin-channels.jso
 ```
 
 On startup the bot resolves these links to channel IDs and rewrites the file with the channel information. It also keeps track of channels where it gains administrator rights. The React client loads this list so you can choose where to post news.
+
+### POST `/api/post`
+
+Send messages or media to a Telegram channel. The endpoint accepts a JSON body:
+
+```json
+{
+  "channel": "<channel id>",
+  "text": "optional caption or message",
+  "media": "optional https url to an image or video"
+}
+```
+
+When `media` is provided, the server sends a photo or video to the channel. If
+the URL ends with `.mp4` a video is sent, otherwise a photo. When only `text` is
+present it falls back to a regular message.
