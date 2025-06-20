@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import DOMPurify from 'dompurify'
 
 export default function NewsItem({ item, mode }) {
   return (
@@ -15,7 +16,10 @@ export default function NewsItem({ item, mode }) {
           {(item.media?.[0] || item.image) && (
             <img src={item.media?.[0] || item.image} alt="" />
           )}
-          <div className="tg-post-text" dangerouslySetInnerHTML={{ __html: item.html || `<p>${item.text}</p>` }} />
+          <div
+            className="tg-post-text"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.html || `<p>${item.text}</p>`) }}
+          />
           <div className="tg-post-footer">
             <span>{new Date(item.publishedAt).toLocaleString()}</span>
             <a href={item.url} target="_blank" rel="noreferrer">Open</a>

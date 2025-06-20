@@ -45,4 +45,11 @@ describe('NewsItem', () => {
     render(<NewsItem item={item} mode="render" />)
     expect(screen.getByText('1/1/2024', { exact: false })).toBeInTheDocument()
   })
+
+  test('sanitizes html', () => {
+    const unsafe = { ...item, html: '<p>ok</p><script>bad()</script>' }
+    const { container } = render(<NewsItem item={unsafe} mode="render" />)
+    expect(container.querySelectorAll('script').length).toBe(0)
+    expect(screen.getByText('ok')).toBeInTheDocument()
+  })
 })
