@@ -223,7 +223,7 @@ function App() {
         <TGSources urls={tgUrls} addUrl={addTgUrl} removeUrl={removeTgUrl} />
       )}
       <ModeToggle mode={mode} setMode={setMode} />
-      <Controls startGet={tab === 'news' ? startGetting : startScraping} startPost={startPosting} stop={stop} startLabel={tab === 'news' ? 'Start Getting' : 'Start Scrapping'} />
+      <Controls startGet={tab === 'news' ? startGetting : startScraping} startPost={startPosting} stop={stop} startLabel={tab === 'news' ? 'Start Getting' : 'Start Scraping'} />
       <NewsList news={news} mode={mode} />
     </div>
   )
