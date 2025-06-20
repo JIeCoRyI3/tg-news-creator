@@ -250,19 +250,12 @@ async function scrapeTelegramChannel(url) {
 
 /**
  * @openapi
- * /api/telegram-info:
+ * /api/channels:
  *   get:
- *     summary: Get Telegram channel information
- *     parameters:
- *       - in: query
- *         name: url
- *         schema:
- *           type: string
- *         required: true
- *         description: Telegram channel link or username
+ *     summary: List Telegram channels the bot has access to
  *     responses:
  *       200:
- *         description: Channel info
+ *         description: Object containing channel information
  */
 app.get('/api/channels', (req, res) => {
   res.json(listChannels());
