@@ -95,7 +95,7 @@ curl -F title=News -F model=gpt-4o \
      http://localhost:3001/api/filters
 ```
 
-Attachments are uploaded as part of the multipart request using the `attachments` field. When creation succeeds the API returns the filter id which can later be used to evaluate posts via `/api/filters/<id>/evaluate`.
+Upload files first using the `/api/vector-stores` endpoint which creates a vector store. Pass the returned `vector_store_id` when creating the filter. When creation succeeds the API returns the filter id which can later be used to evaluate posts via `/api/filters/<id>/evaluate`.
 
 Additional knowledge can be added later using `/api/filters/<id>/files`:
 

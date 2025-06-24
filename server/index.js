@@ -377,29 +377,43 @@ app.get('/api/filters', (req, res) => {
   res.json(filters);
 });
 
-app.post('/api/filters', upload.array('attachments'), async (req, res) => {
+app.post('/api/vector-stores', upload.array('attachments'), async (req, res) => {
   try {
-    const { title, model, instructions } = req.body;
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    const { name } = req.body;
+    log(`Creating vector store${name ? ' ' + name : ''}`);
+    const vs = await openai.beta.vectorStores.create({ name: name || undefined });
+    const fileIds = [];
+    for (const file of req.files || []) {
+      const info = await openai.beta.vectorStores.files.upload(vs.id, fs.createReadStream(file.path));
+      fileIds.push(info.id);
+      fs.unlink(file.path, () => {});
+    }
+    log(`Created vector store ${vs.id}`);
+    res.json({ id: vs.id, file_ids: fileIds });
+  } catch (e) {
+    const msg = e.message;
+    console.error('Failed to create vector store', msg);
+    log(`Failed to create vector store: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.post('/api/filters', upload.none(), async (req, res) => {
+  try {
+    const { title, model, instructions, vector_store_id } = req.body;
     if (!title || !model || !instructions) return res.status(400).json({ error: 'missing fields' });
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     log(`Creating filter ${title}`);
-    const fileIds = [];
-    for (const file of req.files || []) {
-      const resp = await openai.files.create({ file: fs.createReadStream(file.path), purpose: 'assistants' });
-      fileIds.push(resp.id);
-      fs.unlink(file.path, () => {});
-    }
+    const vectorStoreId = vector_store_id || null;
     const createResp = await openai.beta.assistants.create({
       name: title,
       model,
       instructions,
-      tools: fileIds.length ? [{ type: 'file_search' }] : [],
-      tool_resources: fileIds.length
-        ? { file_search: { vector_stores: [{ file_ids: fileIds }] } }
-        : undefined
+      tools: vectorStoreId ? [{ type: 'file_search' }] : [],
+      tool_resources: vectorStoreId ? { file_search: { vector_store_ids: [vectorStoreId] } } : undefined
     });
-    const vectorStoreId = createResp.tool_resources?.file_search?.vector_store_ids?.[0] || null;
-    const info = { id: createResp.id, title, model, instructions, file_ids: fileIds, vector_store_id: vectorStoreId };
+    const info = { id: createResp.id, title, model, instructions, file_ids: [], vector_store_id: vectorStoreId };
     filters.push(info);
     saveFilters();
     log(`Created filter ${title}`);
