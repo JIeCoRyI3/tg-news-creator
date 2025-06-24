@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const axios = require('axios');
 const { HttpProxyAgent } = require('http-proxy-agent');
@@ -13,7 +14,6 @@ const { marked } = require('marked');
 const { telegram_scraper } = require('telegram-scraper');
 const sources = require('./sources');
 const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
 const FormData = require('form-data');
 const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents } = require('../bot');
@@ -404,9 +404,10 @@ app.post('/api/filters', upload.array('attachments'), async (req, res) => {
     log(`Created filter ${title}`);
     res.json(info);
   } catch (e) {
-    console.error('Failed to create filter', e.message);
-    log(`Failed to create filter: ${e.message}`);
-    res.status(500).json({ error: e.message });
+    const msg = e.response?.data?.error?.message || e.message;
+    console.error('Failed to create filter', msg);
+    log(`Failed to create filter: ${msg}`);
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -433,9 +434,10 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     log(`Score ${score} for post`);
     res.json({ score, content });
   } catch (e) {
-    console.error('Failed to evaluate filter', e.message);
-    log(`Failed to evaluate filter: ${e.message}`);
-    res.status(500).json({ error: e.message });
+    const msg = e.response?.data?.error?.message || e.message;
+    console.error('Failed to evaluate filter', msg);
+    log(`Failed to evaluate filter: ${msg}`);
+    res.status(500).json({ error: msg });
   }
 });
 

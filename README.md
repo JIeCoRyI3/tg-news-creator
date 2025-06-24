@@ -52,6 +52,9 @@ BOT_TOKEN=your_bot_token
 OPENAI_API_KEY=your_openai_key
 ```
 
+The server always loads this `server/.env` file so it works even when started
+from the project root.
+
 Put the Telegram channel links you want to post to in `server/admin-channels.json`:
 
 ```json
@@ -75,3 +78,22 @@ Send messages or media to a Telegram channel. The endpoint accepts a JSON body:
 When `media` is provided, the server sends a photo or video to the channel. If
 the URL ends with `.mp4` a video is sent, otherwise a photo. When only `text` is
 present it falls back to a regular message.
+
+### OpenAI Filters
+
+You can create filters that rely on OpenAI models to score news before posting. These filters are created using the `/api/filters` endpoint which wraps the OpenAI Assistants API. A valid `OPENAI_API_KEY` must be present in `server/.env`.
+
+Use `/api/models` to fetch the list of models available for your key. Pick a model from this list (for example `gpt-4o` or `gpt-3.5-turbo`). Supplying an unknown model will result in a `400` error from the OpenAI API.
+
+If a filter creation fails the server now returns the full error message from
+OpenAI which can help diagnose issues such as an invalid model name.
+
+```bash
+# create a filter with curl
+curl -F title=News -F model=gpt-4o \
+     -F instructions=@instructions.txt \
+     http://localhost:3001/api/filters
+```
+
+Attachments are uploaded as part of the multipart request using the `attachments` field. When creation succeeds the API returns the filter id which can later be used to evaluate posts via `/api/filters/<id>/evaluate`.
+
