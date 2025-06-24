@@ -385,7 +385,8 @@ app.post('/api/vector-stores', upload.array('attachments'), async (req, res) => 
     const vs = await openai.vectorStores.create({ name: name || undefined });
     const fileIds = [];
     for (const file of req.files || []) {
-      const info = await openai.vectorStores.files.upload(vs.id, fs.createReadStream(file.path));
+      const toUpload = await openai.toFile(fs.createReadStream(file.path), file.originalname)
+      const info = await openai.vectorStores.files.upload(vs.id, toUpload);
       fileIds.push(info.id);
       fs.unlink(file.path, () => {});
     }
@@ -435,7 +436,8 @@ app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res)
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     const added = [];
     for (const file of req.files || []) {
-      const info = await openai.vectorStores.files.upload(filter.vector_store_id, fs.createReadStream(file.path));
+      const toUpload = await openai.toFile(fs.createReadStream(file.path), file.originalname)
+      const info = await openai.vectorStores.files.upload(filter.vector_store_id, toUpload);
       added.push(info.id);
       fs.unlink(file.path, () => {});
     }
