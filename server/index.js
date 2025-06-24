@@ -16,7 +16,7 @@ const sources = require('./sources');
 const fs = require('fs');
 const multer = require('multer');
 const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents } = require('../bot');
-const OpenAI = require('openai');
+const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 
 function log(message) {
@@ -385,7 +385,7 @@ app.post('/api/vector-stores', upload.array('attachments'), async (req, res) => 
     const vs = await openai.vectorStores.create({ name: name || undefined });
     const fileIds = [];
     for (const file of req.files || []) {
-      const toUpload = await openai.toFile(fs.createReadStream(file.path), file.originalname)
+      const toUpload = await toFile(fs.createReadStream(file.path), file.originalname)
       const info = await openai.vectorStores.files.upload(vs.id, toUpload);
       fileIds.push(info.id);
       fs.unlink(file.path, () => {});
@@ -436,7 +436,7 @@ app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res)
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     const added = [];
     for (const file of req.files || []) {
-      const toUpload = await openai.toFile(fs.createReadStream(file.path), file.originalname)
+      const toUpload = await toFile(fs.createReadStream(file.path), file.originalname)
       const info = await openai.vectorStores.files.upload(filter.vector_store_id, toUpload);
       added.push(info.id);
       fs.unlink(file.path, () => {});
