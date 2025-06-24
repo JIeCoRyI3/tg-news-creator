@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const axios = require('axios');
 const { HttpProxyAgent } = require('http-proxy-agent');
@@ -13,10 +14,10 @@ const { marked } = require('marked');
 const { telegram_scraper } = require('telegram-scraper');
 const sources = require('./sources');
 const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
-const FormData = require('form-data');
 const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents } = require('../bot');
+const OpenAI = require('openai');
+const { ProxyAgent } = require('undici');
 
 function log(message) {
   console.log(message);
@@ -109,6 +110,10 @@ const axiosInstance = axios.create(proxyUrl ? {
   proxy: false,
   maxRedirects: 10
 } : { maxRedirects: 10 });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  ...(proxyUrl ? { fetchOptions: { dispatcher: new ProxyAgent(proxyUrl) } } : {})
+});
 app.use(cors({ origin: '*' }));
 const PORT = process.env.PORT || 3001;
 
@@ -353,12 +358,11 @@ app.delete('/api/tg-sources', (req, res) => {
 
 app.get('/api/models', async (req, res) => {
   try {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
-    const resp = await axiosInstance.get('https://api.openai.com/v1/models', {
-      headers: { Authorization: `Bearer ${key}` }
-    });
-    const models = resp.data.data
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    }
+    const resp = await openai.models.list();
+    const models = resp.data
       .map(m => m.id)
       .filter(id => id.startsWith('gpt-'))
       .sort();
@@ -377,36 +381,31 @@ app.post('/api/filters', upload.array('attachments'), async (req, res) => {
   try {
     const { title, model, instructions } = req.body;
     if (!title || !model || !instructions) return res.status(400).json({ error: 'missing fields' });
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     log(`Creating filter ${title}`);
     const fileIds = [];
     for (const file of req.files || []) {
-      const fd = new FormData();
-      fd.append('file', fs.createReadStream(file.path));
-      fd.append('purpose', 'assistants');
-      const resp = await axiosInstance.post('https://api.openai.com/v1/files', fd, {
-        headers: fd.getHeaders({ Authorization: `Bearer ${key}` })
-      });
-      fileIds.push(resp.data.id);
+      const resp = await openai.files.create({ file: fs.createReadStream(file.path), purpose: 'assistants' });
+      fileIds.push(resp.id);
       fs.unlink(file.path, () => {});
     }
-    const createResp = await axiosInstance.post('https://api.openai.com/v1/assistants', {
+    const createResp = await openai.beta.assistants.create({
       name: title,
       model,
       instructions,
       tools: fileIds.length ? [{ type: 'file_search' }] : [],
       file_ids: fileIds
-    }, { headers: { Authorization: `Bearer ${key}` } });
-    const info = { id: createResp.data.id, title, model, instructions, file_ids: fileIds };
+    });
+    const info = { id: createResp.id, title, model, instructions, file_ids: fileIds };
     filters.push(info);
     saveFilters();
     log(`Created filter ${title}`);
     res.json(info);
   } catch (e) {
-    console.error('Failed to create filter', e.message);
-    log(`Failed to create filter: ${e.message}`);
-    res.status(500).json({ error: e.message });
+    const msg = e.message;
+    console.error('Failed to create filter', msg);
+    log(`Failed to create filter: ${msg}`);
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -417,25 +416,25 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     if (!filter) return res.status(404).json({ error: 'not found' });
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     log(`Filtering post with ${filter.title}`);
-    const resp = await axiosInstance.post('https://api.openai.com/v1/chat/completions', {
+    const resp = await openai.chat.completions.create({
       model: filter.model,
       messages: [
         { role: 'system', content: filter.instructions },
         { role: 'user', content: text }
       ]
-    }, { headers: { Authorization: `Bearer ${key}` } });
-    const content = resp.data.choices[0].message.content;
+    });
+    const content = resp.choices[0].message.content;
     const m = content.match(/(\d+(?:\.\d+)?)/);
     const score = m ? parseFloat(m[1]) : 0;
     log(`Score ${score} for post`);
     res.json({ score, content });
   } catch (e) {
-    console.error('Failed to evaluate filter', e.message);
-    log(`Failed to evaluate filter: ${e.message}`);
-    res.status(500).json({ error: e.message });
+    const msg = e.message;
+    console.error('Failed to evaluate filter', msg);
+    log(`Failed to evaluate filter: ${msg}`);
+    res.status(500).json({ error: msg });
   }
 });
 
