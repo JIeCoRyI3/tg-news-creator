@@ -394,7 +394,9 @@ app.post('/api/filters', upload.array('attachments'), async (req, res) => {
       model,
       instructions,
       tools: fileIds.length ? [{ type: 'file_search' }] : [],
-      file_ids: fileIds
+      tool_resources: fileIds.length
+        ? { file_search: { vector_stores: [{ file_ids: fileIds }] } }
+        : undefined
     });
     const info = { id: createResp.id, title, model, instructions, file_ids: fileIds };
     filters.push(info);
