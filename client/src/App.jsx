@@ -268,8 +268,17 @@ function App() {
       ) : (
         <FiltersTab filters={filters} setFilters={setFilters} />
       )}
-      <ModeToggle mode={mode} setMode={setMode} />
-      <Controls startGet={tab === 'news' ? startGetting : startScraping} startPost={startPosting} stop={stop} startLabel={tab === 'news' ? 'Start Getting' : tab === 'tg' ? 'Start Scraping' : 'Start Getting'} />
+      {tab !== 'filters' && (
+        <>
+          <ModeToggle mode={mode} setMode={setMode} />
+          <Controls
+            startGet={tab === 'news' ? startGetting : startScraping}
+            startPost={startPosting}
+            stop={stop}
+            startLabel={tab === 'news' ? 'Start Getting' : tab === 'tg' ? 'Start Scraping' : 'Start Getting'}
+          />
+        </>
+      )}
       <NewsList news={news} mode={mode} />
     </div>
   )

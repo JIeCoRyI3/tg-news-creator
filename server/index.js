@@ -351,6 +351,24 @@ app.delete('/api/tg-sources', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/models', async (req, res) => {
+  try {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    const resp = await axiosInstance.get('https://api.openai.com/v1/models', {
+      headers: { Authorization: `Bearer ${key}` }
+    });
+    const models = resp.data.data
+      .map(m => m.id)
+      .filter(id => id.startsWith('gpt-'))
+      .sort();
+    res.json(models);
+  } catch (e) {
+    console.error('Failed to list models', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/filters', (req, res) => {
   res.json(filters);
 });
