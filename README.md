@@ -81,7 +81,7 @@ present it falls back to a regular message.
 
 ### OpenAI Filters
 
-You can create filters that rely on OpenAI models to score news before posting. These filters are created using the `/api/filters` endpoint which wraps the OpenAI Assistants API. A valid `OPENAI_API_KEY` must be present in `server/.env`.
+You can create filters that rely on OpenAI models to score news before posting. The server now uses the official `openai` SDK and respects the `http_proxy`/`https_proxy` environment variables. Filters are created using the `/api/filters` endpoint which wraps the OpenAI Assistants API. A valid `OPENAI_API_KEY` must be present in `server/.env`.
 
 Use `/api/models` to fetch the list of models available for your key. Pick a model from this list (for example `gpt-4o` or `gpt-3.5-turbo`). Supplying an unknown model will result in a `400` error from the OpenAI API.
 
