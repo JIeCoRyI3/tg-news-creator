@@ -97,3 +97,10 @@ curl -F title=News -F model=gpt-4o \
 
 Attachments are uploaded as part of the multipart request using the `attachments` field. When creation succeeds the API returns the filter id which can later be used to evaluate posts via `/api/filters/<id>/evaluate`.
 
+Additional knowledge can be added later using `/api/filters/<id>/files`:
+
+```bash
+curl -F attachments=@notes.txt \
+     http://localhost:3001/api/filters/<id>/files
+```
+
