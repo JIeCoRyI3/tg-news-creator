@@ -382,10 +382,10 @@ app.post('/api/vector-stores', upload.array('attachments'), async (req, res) => 
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     const { name } = req.body;
     log(`Creating vector store${name ? ' ' + name : ''}`);
-    const vs = await openai.beta.vectorStores.create({ name: name || undefined });
+    const vs = await openai.vectorStores.create({ name: name || undefined });
     const fileIds = [];
     for (const file of req.files || []) {
-      const info = await openai.beta.vectorStores.files.upload(vs.id, fs.createReadStream(file.path));
+      const info = await openai.vectorStores.files.upload(vs.id, fs.createReadStream(file.path));
       fileIds.push(info.id);
       fs.unlink(file.path, () => {});
     }
@@ -435,7 +435,7 @@ app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res)
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     const added = [];
     for (const file of req.files || []) {
-      const info = await openai.beta.vectorStores.files.upload(filter.vector_store_id, fs.createReadStream(file.path));
+      const info = await openai.vectorStores.files.upload(filter.vector_store_id, fs.createReadStream(file.path));
       added.push(info.id);
       fs.unlink(file.path, () => {});
     }
