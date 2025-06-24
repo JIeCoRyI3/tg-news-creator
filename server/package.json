@@ -27,6 +27,8 @@
     "unfluff": "^3.2.0",
     "cheerio": "^1.0.0-rc.12",
     "marked": "^15.0.12",
-    "telegram-scraper": "^1.0.2"
+    "telegram-scraper": "^1.0.2",
+    "multer": "^1.4.5-lts.1",
+    "form-data": "^4.0.0"
   }
 }
