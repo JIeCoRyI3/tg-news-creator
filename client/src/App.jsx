@@ -6,6 +6,8 @@ import ModeToggle from './components/ModeToggle.jsx'
 import Controls from './components/Controls.jsx'
 import NewsList from './components/NewsList.jsx'
 import TGSources from './components/TGSources.jsx'
+import FilterSelect from './components/FilterSelect.jsx'
+import FiltersTab from './components/FiltersTab.jsx'
 
 import './App.css'
 
@@ -41,9 +43,12 @@ function App() {
   const [mode, setMode] = useState('json')
   const [tab, setTab] = useState('news')
   const [tgUrls, setTgUrls] = useState([])
+  const [filters, setFilters] = useState([])
+  const [selectedFilter, setSelectedFilter] = useState('none')
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
   const tabRef = useRef(tab)
+  const filterRef = useRef(selectedFilter)
   const [, forceTick] = useState(0)
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
@@ -79,6 +84,10 @@ function App() {
     tabRef.current = tab
   }, [tab])
 
+  useEffect(() => {
+    filterRef.current = selectedFilter
+  }, [selectedFilter])
+
   const connect = (endpoint, params) => {
     if (es) return
     const eventSource = new EventSource(`http://localhost:3001${endpoint}?${params}`)
@@ -88,17 +97,35 @@ function App() {
       setNews(prev => [item, ...prev])
       setStatuses(prev => ({ ...prev, [item.source]: { ...(prev[item.source] || {}), lastPing: Date.now() } }))
       if (postingRef.current) {
-        const msg = tabRef.current === 'tg'
+        const base = tabRef.current === 'tg'
           ? `${item.text || item.title}\n${item.url}`
           : `*${item.title}*\n${item.url}`
         const media = item.media?.find(m => m.endsWith('.mp4')) || item.media?.[0]
-        channelsRef.current.forEach(ch => {
-          fetch('http://localhost:3001/api/post', {
+        const send = (score) => {
+          const text = score != null ? `Score for this post is ${score}\n${base}` : base
+          channelsRef.current.forEach(ch => {
+            fetch('http://localhost:3001/api/post', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ channel: ch, text, media })
+            }).catch(() => {})
+          })
+        }
+        const fid = filterRef.current
+        if (fid && fid !== 'none') {
+          fetch(`http://localhost:3001/api/filters/${fid}/evaluate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel: ch, text: msg, media })
-          }).catch(() => {})
-        })
+            body: JSON.stringify({ text: base })
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (data.score > 7) send(data.score)
+            })
+            .catch(() => {})
+        } else {
+          send(null)
+        }
       }
     }
     eventSource.addEventListener('status', (e) => {
@@ -108,10 +135,6 @@ function App() {
     eventSource.addEventListener('ping', (e) => {
       const data = JSON.parse(e.data)
       setStatuses(prev => ({ ...prev, [data.source]: { ...(prev[data.source] || {}), lastPing: Date.now() } }))
-    })
-    eventSource.addEventListener('log', (e) => {
-      const data = JSON.parse(e.data)
-      setLogs(prev => [data.message, ...prev].slice(0, 50))
     })
     eventSource.onerror = () => {
       eventSource.close()
@@ -195,6 +218,15 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const esLogs = new EventSource('http://localhost:3001/api/logs')
+    esLogs.onmessage = (e) => {
+      const data = JSON.parse(e.data)
+      setLogs(prev => [data.message, ...prev].slice(0, 50))
+    }
+    return () => esLogs.close()
+  }, [])
+
+  useEffect(() => {
     fetch('http://localhost:3001/api/tg-sources')
       .then(r => r.json())
       .then(data => setTgUrls(Array.isArray(data) ? data : []))
@@ -209,22 +241,35 @@ function App() {
         setChannels(arr)
       }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/filters')
+      .then(r => r.json())
+      .then(data => setFilters(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
   return (
     <div className="App">
       <h3>News Aggregator</h3>
       <div className="tabs">
         <button onClick={() => setTab('news')} className={tab === 'news' ? 'active' : ''}>News Sources</button>
         <button onClick={() => setTab('tg')} className={tab === 'tg' ? 'active' : ''}>TG Scraping</button>
+        <button onClick={() => setTab('filters')} className={tab === 'filters' ? 'active' : ''}>Filters</button>
       </div>
       <Logs logs={logs} />
       <ChannelSelect channels={channels} selected={selectedChannels} setSelected={setSelectedChannels} />
       {tab === 'news' ? (
         <SourcesTable sources={sources} selected={selected} toggle={toggle} statuses={statuses} />
+      ) : tab === 'tg' ? (
+        <>
+          <TGSources urls={tgUrls} addUrl={addTgUrl} removeUrl={removeTgUrl} />
+          <FilterSelect filters={filters} selected={selectedFilter} setSelected={setSelectedFilter} />
+        </>
       ) : (
-        <TGSources urls={tgUrls} addUrl={addTgUrl} removeUrl={removeTgUrl} />
+        <FiltersTab filters={filters} setFilters={setFilters} />
       )}
       <ModeToggle mode={mode} setMode={setMode} />
-      <Controls startGet={tab === 'news' ? startGetting : startScraping} startPost={startPosting} stop={stop} startLabel={tab === 'news' ? 'Start Getting' : 'Start Scraping'} />
+      <Controls startGet={tab === 'news' ? startGetting : startScraping} startPost={startPosting} stop={stop} startLabel={tab === 'news' ? 'Start Getting' : tab === 'tg' ? 'Start Scraping' : 'Start Getting'} />
       <NewsList news={news} mode={mode} />
     </div>
   )

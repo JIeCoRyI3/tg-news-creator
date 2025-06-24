@@ -134,6 +134,13 @@
   gap: 1rem;
 }
 
+.filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 @keyframes slide-fade {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }

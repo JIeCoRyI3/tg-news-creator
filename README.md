@@ -41,6 +41,7 @@ Select news sources and use **Start Getting** to display the live stream of head
 You can also select Telegram channels and click **Start Posting** to forward all
 new items directly to Telegram. Press **Stop** to close the connection and halt
 posting.
+Use the **Filters** tab to manage Custom GPTs that score posts before posting.
 
 ### Telegram Bot Setup
 
@@ -48,6 +49,7 @@ Create a `.env` file inside the `server` directory containing your bot token:
 
 ```bash
 BOT_TOKEN=your_bot_token
+OPENAI_API_KEY=your_openai_key
 ```
 
 Put the Telegram channel links you want to post to in `server/admin-channels.json`:
