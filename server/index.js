@@ -398,7 +398,8 @@ app.post('/api/filters', upload.array('attachments'), async (req, res) => {
         ? { file_search: { vector_stores: [{ file_ids: fileIds }] } }
         : undefined
     });
-    const info = { id: createResp.id, title, model, instructions, file_ids: fileIds };
+    const vectorStoreId = createResp.tool_resources?.file_search?.vector_store_ids?.[0] || null;
+    const info = { id: createResp.id, title, model, instructions, file_ids: fileIds, vector_store_id: vectorStoreId };
     filters.push(info);
     saveFilters();
     log(`Created filter ${title}`);
@@ -407,6 +408,31 @@ app.post('/api/filters', upload.array('attachments'), async (req, res) => {
     const msg = e.message;
     console.error('Failed to create filter', msg);
     log(`Failed to create filter: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const filter = filters.find(f => f.id === id);
+    if (!filter) return res.status(404).json({ error: 'not found' });
+    if (!filter.vector_store_id) return res.status(400).json({ error: 'no vector store' });
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    const added = [];
+    for (const file of req.files || []) {
+      const info = await openai.beta.vectorStores.files.upload(filter.vector_store_id, fs.createReadStream(file.path));
+      added.push(info.id);
+      fs.unlink(file.path, () => {});
+    }
+    filter.file_ids.push(...added);
+    saveFilters();
+    log(`Added ${added.length} file(s) to filter ${filter.title}`);
+    res.json({ file_ids: added });
+  } catch (e) {
+    const msg = e.message;
+    console.error('Failed to add files', msg);
+    log(`Failed to add files: ${msg}`);
     res.status(500).json({ error: msg });
   }
 });
