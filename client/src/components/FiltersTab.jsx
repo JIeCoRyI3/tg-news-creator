@@ -8,6 +8,7 @@ export default function FiltersTab({ filters, setFilters }) {
   const [models, setModels] = useState([])
   const [instructions, setInstructions] = useState('')
   const [files, setFiles] = useState([])
+  const [vectorId, setVectorId] = useState(null)
 
   useEffect(() => {
     fetch('http://localhost:3001/api/models')
@@ -26,7 +27,7 @@ export default function FiltersTab({ filters, setFilters }) {
     fd.append('title', title)
     fd.append('model', model)
     fd.append('instructions', instructions)
-    files.forEach(f => fd.append('attachments', f))
+    if (vectorId) fd.append('vector_store_id', vectorId)
     fetch('http://localhost:3001/api/filters', {
       method: 'POST',
       body: fd
@@ -38,6 +39,26 @@ export default function FiltersTab({ filters, setFilters }) {
         setTitle('')
         setInstructions('')
         setFiles([])
+        setVectorId(null)
+      })
+      .catch(() => {})
+  }
+
+  const uploadFiles = (selected) => {
+    setFiles(selected)
+    if (selected.length === 0) {
+      setVectorId(null)
+      return
+    }
+    const fd = new FormData()
+    selected.forEach(f => fd.append('attachments', f))
+    fetch('http://localhost:3001/api/vector-stores', {
+      method: 'POST',
+      body: fd
+    })
+      .then(r => r.json())
+      .then(data => {
+        setVectorId(data.id)
       })
       .catch(() => {})
   }
@@ -65,7 +86,7 @@ export default function FiltersTab({ filters, setFilters }) {
             )}
           </select>
           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="Instructions" />
-          <input type="file" multiple onChange={e => setFiles(Array.from(e.target.files))} />
+          <input type="file" multiple onChange={e => uploadFiles(Array.from(e.target.files))} />
           <button onClick={create}>Save</button>
           <button onClick={() => setShowForm(false)}>Cancel</button>
         </div>
