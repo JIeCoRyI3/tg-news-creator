@@ -19,6 +19,9 @@ const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents } = require('
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 
+// Keep track of posts we've already scraped to avoid logging duplicates
+const scrapedPostUrls = new Set();
+
 function log(message) {
   console.log(message);
   botEvents.emit('log', message);
@@ -206,7 +209,12 @@ async function scrapeTelegramChannel(url) {
           channelImage: p.user_photo || null
         };
       });
-      posts.forEach(p => log(`Scraped TG post: ${p.title} - ${p.url}`));
+      posts.forEach(p => {
+        if (!scrapedPostUrls.has(p.url)) {
+          scrapedPostUrls.add(p.url);
+          log(`Scraped TG post: ${p.title} - ${p.url}`);
+        }
+      });
       return posts;
     }
   } catch (err) {
@@ -269,7 +277,10 @@ async function scrapeTelegramChannel(url) {
           console.error('Failed to rescrape post', link, e.message);
         }
       }
-      log(`Scraped TG post: ${post.title} - ${post.url}`);
+      if (!scrapedPostUrls.has(post.url)) {
+        scrapedPostUrls.add(post.url);
+        log(`Scraped TG post: ${post.title} - ${post.url}`);
+      }
       posts.push(post);
     }
     return posts;
