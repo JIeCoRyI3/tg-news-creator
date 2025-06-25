@@ -221,6 +221,7 @@ function App() {
     const esLogs = new EventSource('http://localhost:3001/api/logs')
     esLogs.onmessage = (e) => {
       const data = JSON.parse(e.data)
+      console.log(data.message)
       setLogs(prev => [data.message, ...prev].slice(0, 50))
     }
     return () => esLogs.close()

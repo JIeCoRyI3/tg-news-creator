@@ -590,10 +590,10 @@ app.get('/api/tgnews', async (req, res) => {
         log(`Scraping TG ${url}`);
         const items = await scrapeTelegramChannel(url);
         for (const item of items) {
-          log(`Found post ${item.url}`);
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           if (!includeHistory && initial) continue;
+          log(`Found post ${item.url}`);
           res.write(`data: ${JSON.stringify({ ...item, source: url })}\n\n`);
           log(`Sent post ${item.url}`);
         }
