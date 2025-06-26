@@ -8,6 +8,7 @@ import NewsList from './components/NewsList.jsx'
 import TGSources from './components/TGSources.jsx'
 import FilterSelect from './components/FilterSelect.jsx'
 import FiltersTab from './components/FiltersTab.jsx'
+import AdminTab from './components/AdminTab.jsx'
 
 import './App.css'
 
@@ -256,6 +257,7 @@ function App() {
         <button onClick={() => setTab('news')} className={tab === 'news' ? 'active' : ''}>News Sources</button>
         <button onClick={() => setTab('tg')} className={tab === 'tg' ? 'active' : ''}>TG Scraping</button>
         <button onClick={() => setTab('filters')} className={tab === 'filters' ? 'active' : ''}>Filters</button>
+        <button onClick={() => setTab('admin')} className={tab === 'admin' ? 'active' : ''}>Administration</button>
       </div>
       <Logs logs={logs} />
       <ChannelSelect channels={channels} selected={selectedChannels} setSelected={setSelectedChannels} />
@@ -266,10 +268,12 @@ function App() {
           <TGSources urls={tgUrls} addUrl={addTgUrl} removeUrl={removeTgUrl} />
           <FilterSelect filters={filters} selected={selectedFilter} setSelected={setSelectedFilter} />
         </>
+      ) : tab === 'admin' ? (
+        <AdminTab />
       ) : (
         <FiltersTab filters={filters} setFilters={setFilters} />
       )}
-      {tab !== 'filters' && (
+      {(tab === 'news' || tab === 'tg') && (
         <>
           <ModeToggle mode={mode} setMode={setMode} />
           <Controls
@@ -280,7 +284,7 @@ function App() {
           />
         </>
       )}
-      <NewsList news={news} mode={mode} />
+      {tab !== 'admin' && <NewsList news={news} mode={mode} />}
     </div>
   )
 }

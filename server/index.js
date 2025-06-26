@@ -15,7 +15,7 @@ const { telegram_scraper } = require('telegram-scraper');
 const sources = require('./sources');
 const fs = require('fs');
 const multer = require('multer');
-const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents } = require('../bot');
+const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback } = require('../bot');
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 
@@ -32,6 +32,10 @@ let tgSources = [];
 
 const FILTERS_FILE = path.join(__dirname, 'filters.json');
 let filters = [];
+
+const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
+let approvers = [];
+const awaitingPosts = new Map();
 
 function loadTgSources() {
   try {
@@ -69,9 +73,47 @@ function saveFilters() {
   }
 }
 
+function loadApprovers() {
+  try {
+    const data = fs.readFileSync(APPROVERS_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) approvers = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load approvers', e);
+  }
+}
+
+function saveApprovers() {
+  try {
+    fs.writeFileSync(APPROVERS_FILE, JSON.stringify(approvers, null, 2));
+  } catch (e) {
+    console.error('Failed to save approvers', e);
+  }
+}
+
 loadTgSources();
 loadFilters();
+loadApprovers();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+
+botEvents.on('callback', async (query) => {
+  const m = /^([a-z]+):(.+)$/.exec(query.data || '');
+  if (!m) return;
+  const [, action, id] = m;
+  if (action === 'approve') {
+    const post = awaitingPosts.get(id);
+    if (post) {
+      awaitingPosts.delete(id);
+      await postToChannel(post);
+      answerCallback(query.id, 'Approved').catch(() => {});
+    }
+  } else if (action === 'cancel') {
+    if (awaitingPosts.has(id)) {
+      awaitingPosts.delete(id);
+      answerCallback(query.id, 'Cancelled').catch(() => {});
+    }
+  }
+});
 
 class Queue {
   constructor(concurrency = 2) {
@@ -303,21 +345,80 @@ app.get('/api/channels', (req, res) => {
   res.json(listChannels());
 });
 
+app.get('/api/approvers', (req, res) => {
+  res.json(approvers);
+});
+
+app.post('/api/approvers', async (req, res) => {
+  const { link } = req.body;
+  if (!link) return res.status(400).json({ error: 'link required' });
+  const r = await resolveLink(link);
+  if (!r) return res.status(400).json({ error: 'failed to resolve link' });
+  const [id, info] = r;
+  if (!approvers.find(a => a.id === id)) {
+    approvers.push({ id, ...info });
+    saveApprovers();
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/approvers', (req, res) => {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'id required' });
+  const idx = approvers.findIndex(a => String(a.id) === String(id));
+  if (idx !== -1) {
+    approvers.splice(idx, 1);
+    saveApprovers();
+  }
+  res.json({ ok: true });
+});
+
+app.get('/api/awaiting', (req, res) => {
+  res.json(Array.from(awaitingPosts.values()));
+});
+
+app.post('/api/awaiting/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  const post = awaitingPosts.get(id);
+  if (!post) return res.status(404).json({ error: 'not found' });
+  awaitingPosts.delete(id);
+  await postToChannel(post);
+  res.json({ ok: true });
+});
+
+app.post('/api/awaiting/:id/cancel', (req, res) => {
+  const { id } = req.params;
+  if (!awaitingPosts.has(id)) return res.status(404).json({ error: 'not found' });
+  awaitingPosts.delete(id);
+  res.json({ ok: true });
+});
+
+function postToChannel({ channel, text, media }) {
+  return media
+    ? (media.toLowerCase().endsWith('.mp4')
+        ? sendVideo(channel, media, text)
+        : sendPhoto(channel, media, text))
+    : sendMessage(channel, text);
+}
+
 app.post('/api/post', async (req, res) => {
   try {
     const { channel, text, media } = req.body;
     if (!channel) return res.status(400).json({ error: 'channel required' });
     if (!text && !media) return res.status(400).json({ error: 'text or media required' });
-    log(`Posting to ${channel}`);
-    if (media) {
-      if (media.toLowerCase().endsWith('.mp4')) {
-        await sendVideo(channel, media, text);
-      } else {
-        await sendPhoto(channel, media, text);
+    if (approvers.length) {
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const info = { id, channel, text, media };
+      awaitingPosts.set(id, info);
+      for (const u of approvers) {
+        sendApprovalRequest(u.id, info).catch(() => {});
       }
-    } else {
-      await sendMessage(channel, text);
+      log(`Queued post ${id} for approval`);
+      res.json({ ok: true, awaiting: true, id });
+      return;
     }
+    log(`Posting to ${channel}`);
+    await postToChannel({ channel, text, media });
     log(`Posted to ${channel}`);
     res.json({ ok: true });
   } catch (e) {
