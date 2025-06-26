@@ -145,3 +145,15 @@
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+.admin-tab ul {
+  list-style: none;
+  padding: 0;
+}
+.admin-tab li {
+  margin-bottom: 0.5rem;
+}
+.admin-tab img {
+  max-width: 200px;
+  display: block;
+  margin: 0.25rem 0;
+}

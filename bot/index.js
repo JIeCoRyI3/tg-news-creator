@@ -101,9 +101,9 @@ function listChannels() {
   return obj;
 }
 
-async function sendMessage(channel, text) {
+async function sendMessage(channel, text, options = {}) {
   try {
-    await bot.sendMessage(channel, text, { parse_mode: 'Markdown' });
+    await bot.sendMessage(channel, text, { parse_mode: 'Markdown', ...options });
     console.log('Sent message to', channel);
     botEvents.emit('log', `Sent message to ${channel}`);
   } catch (e) {
@@ -113,9 +113,9 @@ async function sendMessage(channel, text) {
   }
 }
 
-async function sendPhoto(channel, url, caption) {
+async function sendPhoto(channel, url, caption, options = {}) {
   try {
-    await bot.sendPhoto(channel, url, { caption, parse_mode: 'Markdown' });
+    await bot.sendPhoto(channel, url, { caption, parse_mode: 'Markdown', ...options });
     console.log('Sent photo to', channel);
     botEvents.emit('log', `Sent photo to ${channel}`);
   } catch (e) {
@@ -125,9 +125,9 @@ async function sendPhoto(channel, url, caption) {
   }
 }
 
-async function sendVideo(channel, url, caption) {
+async function sendVideo(channel, url, caption, options = {}) {
   try {
-    await bot.sendVideo(channel, url, { caption, parse_mode: 'Markdown' });
+    await bot.sendVideo(channel, url, { caption, parse_mode: 'Markdown', ...options });
     console.log('Sent video to', channel);
     botEvents.emit('log', `Sent video to ${channel}`);
   } catch (e) {
@@ -137,7 +137,32 @@ async function sendVideo(channel, url, caption) {
   }
 }
 
-module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents };
+async function sendApprovalRequest(userId, post) {
+  const keyboard = { inline_keyboard: [[
+    { text: 'Approve', callback_data: `approve:${post.id}` },
+    { text: 'Cancel', callback_data: `cancel:${post.id}` }
+  ]] };
+  const text = `Approve post to ${post.channel}?\n${post.text}`;
+  if (post.media) {
+    if (post.media.toLowerCase().endsWith('.mp4')) {
+      await sendVideo(userId, post.media, text, { reply_markup: keyboard });
+    } else {
+      await sendPhoto(userId, post.media, text, { reply_markup: keyboard });
+    }
+  } else {
+    await sendMessage(userId, text, { reply_markup: keyboard });
+  }
+}
+
+bot.on('callback_query', (q) => {
+  botEvents.emit('callback', q);
+});
+
+function answerCallback(id, text) {
+  return bot.answerCallbackQuery(id, { text });
+}
+
+module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback };
 
 (async () => {
   await loadChannels();
