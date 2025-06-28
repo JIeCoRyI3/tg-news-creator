@@ -36,6 +36,7 @@ let filters = [];
 const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
 let approvers = [];
 const awaitingPosts = new Map();
+const activeApprovers = new Set();
 
 function loadTgSources() {
   try {
@@ -112,6 +113,16 @@ botEvents.on('callback', async (query) => {
       awaitingPosts.delete(id);
       answerCallback(query.id, 'Cancelled').catch(() => {});
     }
+  }
+});
+
+botEvents.on('start_approving', (msg) => {
+  const id = String(msg.from.id);
+  if (approvers.find(a => a.id === id)) {
+    activeApprovers.add(id);
+    sendMessage(id, 'You will now receive approval requests.').catch(() => {});
+  } else {
+    sendMessage(id, 'You are not an approver.').catch(() => {});
   }
 });
 
@@ -406,12 +417,13 @@ app.post('/api/post', async (req, res) => {
     const { channel, text, media } = req.body;
     if (!channel) return res.status(400).json({ error: 'channel required' });
     if (!text && !media) return res.status(400).json({ error: 'text or media required' });
-    if (approvers.length) {
+    const targets = activeApprovers.size ? [...activeApprovers] : approvers.map(a => a.id);
+    if (targets.length) {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const info = { id, channel, text, media };
       awaitingPosts.set(id, info);
-      for (const u of approvers) {
-        sendApprovalRequest(u.id, info).catch(() => {});
+      for (const uid of targets) {
+        sendApprovalRequest(uid, info).catch(() => {});
       }
       log(`Queued post ${id} for approval`);
       res.json({ ok: true, awaiting: true, id });
