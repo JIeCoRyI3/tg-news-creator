@@ -64,9 +64,9 @@ Put the Telegram channel links you want to post to in `server/admin-channels.jso
 On startup the bot resolves these links to channel IDs and rewrites the file with the channel information. It also keeps track of channels where it gains administrator rights. The React client loads this list so you can choose where to post news.
 
 To receive post approval requests, approvers must first start a private chat with
-the bot and run the `/start_approving` command. The bot checks if their numeric
-ID is present in `server/approvers.json` and, when matched, approval messages
-are sent to that chat.
+the bot and run the `/start_approving` command. The bot checks if their
+**username** is listed in `server/approvers.json` and, when matched, approval
+messages are sent to that chat.
 
 ### POST `/api/post`
 

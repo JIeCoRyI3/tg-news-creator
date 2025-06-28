@@ -34,6 +34,7 @@ const FILTERS_FILE = path.join(__dirname, 'filters.json');
 let filters = [];
 
 const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
+// list of allowed approver usernames in lower case
 let approvers = [];
 const awaitingPosts = new Map();
 const activeApprovers = new Set();
@@ -78,7 +79,7 @@ function loadApprovers() {
   try {
     const data = fs.readFileSync(APPROVERS_FILE, 'utf8');
     const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) approvers = parsed;
+    if (Array.isArray(parsed)) approvers = parsed.map(u => String(u).toLowerCase());
   } catch (e) {
     if (e.code !== 'ENOENT') console.error('Failed to load approvers', e);
   }
@@ -118,7 +119,8 @@ botEvents.on('callback', async (query) => {
 
 botEvents.on('start_approving', (msg) => {
   const id = String(msg.from.id);
-  if (approvers.find(a => a.id === id)) {
+  const username = msg.from.username ? msg.from.username.toLowerCase() : '';
+  if (approvers.includes(username)) {
     activeApprovers.add(id);
     sendMessage(id, 'You will now receive approval requests.').catch(() => {});
   } else {
@@ -360,23 +362,22 @@ app.get('/api/approvers', (req, res) => {
   res.json(approvers);
 });
 
-app.post('/api/approvers', async (req, res) => {
-  const { link } = req.body;
-  if (!link) return res.status(400).json({ error: 'link required' });
-  const r = await resolveLink(link);
-  if (!r) return res.status(400).json({ error: 'failed to resolve link' });
-  const [id, info] = r;
-  if (!approvers.find(a => a.id === id)) {
-    approvers.push({ id, ...info });
+app.post('/api/approvers', (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'username required' });
+  const clean = String(username).replace(/^@/, '').toLowerCase();
+  if (!approvers.includes(clean)) {
+    approvers.push(clean);
     saveApprovers();
   }
   res.json({ ok: true });
 });
 
 app.delete('/api/approvers', (req, res) => {
-  const { id } = req.query;
-  if (!id) return res.status(400).json({ error: 'id required' });
-  const idx = approvers.findIndex(a => String(a.id) === String(id));
+  const { username } = req.query;
+  if (!username) return res.status(400).json({ error: 'username required' });
+  const clean = String(username).replace(/^@/, '').toLowerCase();
+  const idx = approvers.findIndex(u => u === clean);
   if (idx !== -1) {
     approvers.splice(idx, 1);
     saveApprovers();
@@ -417,7 +418,7 @@ app.post('/api/post', async (req, res) => {
     const { channel, text, media } = req.body;
     if (!channel) return res.status(400).json({ error: 'channel required' });
     if (!text && !media) return res.status(400).json({ error: 'text or media required' });
-    const targets = activeApprovers.size ? [...activeApprovers] : approvers.map(a => a.id);
+    const targets = [...activeApprovers];
     if (targets.length) {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const info = { id, channel, text, media };
