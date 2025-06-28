@@ -158,6 +158,10 @@ bot.on('callback_query', (q) => {
   botEvents.emit('callback', q);
 });
 
+bot.onText(/\/start_approving/i, (msg) => {
+  botEvents.emit('start_approving', msg);
+});
+
 function answerCallback(id, text) {
   return bot.answerCallbackQuery(id, { text });
 }
