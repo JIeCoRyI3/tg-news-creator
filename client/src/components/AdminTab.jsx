@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 export default function AdminTab() {
-  const [link, setLink] = useState('')
+  const [username, setUsername] = useState('')
   const [users, setUsers] = useState([])
   const [queue, setQueue] = useState([])
 
@@ -23,19 +23,19 @@ export default function AdminTab() {
   }, [])
 
   const add = () => {
-    if (!link.trim()) return
+    if (!username.trim()) return
     fetch('http://localhost:3001/api/approvers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ link: link.trim() })
+      body: JSON.stringify({ username: username.trim() })
     }).then(() => {
-      setLink('')
+      setUsername('')
       load()
     }).catch(() => {})
   }
 
-  const remove = (id) => {
-    fetch(`http://localhost:3001/api/approvers?id=${id}`, {
+  const remove = (name) => {
+    fetch(`http://localhost:3001/api/approvers?username=${name}`, {
       method: 'DELETE'
     }).then(load).catch(() => {})
   }
@@ -53,12 +53,12 @@ export default function AdminTab() {
   return (
     <div className="admin-tab">
       <div className="tg-input">
-        <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://t.me/username" />
+        <input value={username} onChange={e => setUsername(e.target.value)} placeholder="@username" />
         <button onClick={add}>Add Approver</button>
       </div>
       <ul>
         {users.map(u => (
-          <li key={u.id}>{u.username || u.title || u.id} <button onClick={() => remove(u.id)}>x</button></li>
+          <li key={u}><span>{u}</span> <button onClick={() => remove(u)}>x</button></li>
         ))}
       </ul>
       <h4>Awaiting Approval</h4>

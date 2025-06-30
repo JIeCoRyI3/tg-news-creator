@@ -170,4 +170,7 @@ module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, r
 
 (async () => {
   await loadChannels();
+  await bot.setMyCommands([
+    { command: 'start_approving', description: 'Receive approval requests' }
+  ]);
 })();
