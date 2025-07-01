@@ -1,24 +1,6 @@
 # TG News Creator
 
-This project provides a simple Node.js server and React client that aggregate worldwide news from several open RSS feeds. News are streamed to the client in real time via Server Sent Events (SSE).
-
-## Available Sources
-- BBC
-- CNN
-- Reuters
-- The Guardian
-- Al Jazeera
-- Kyiv Independent
-- Kyiv Post
-- UNIAN
-- Ukrainska Pravda
-- Ukrinform
-- RFE/RL
-- RBC Ukraine
-- Suspilne
-- Sky News
-- Fox News
-- Hromadske
+This project provides a simple Node.js server and React client that scrape Telegram channels. Posts are streamed to the client in real time via Server Sent Events (SSE).
 
 ## Getting Started
 
@@ -33,15 +15,11 @@ npm run install-all
 ```bash
 npm start
 ```
-The server listens on **http://localhost:3001** and exposes an SSE endpoint `/api/news?sources=source1,source2&history=true` streaming JSON objects. Set `history=false` to skip the initial batch of two recent items from each source. Swagger documentation is available at `/docs`.
+The server listens on **http://localhost:3001** and exposes an SSE endpoint `/api/tgnews?urls=channel1,channel2&history=true` streaming JSON objects. Set `history=false` to skip the initial batch when connecting. Swagger documentation is available at `/docs`.
 
 The React UI will open on **http://localhost:3000**.
 
-Select news sources and use **Start Getting** to display the live stream of headlines.
-You can also select Telegram channels and click **Start Posting** to forward all
-new items directly to Telegram. Press **Stop** to close the connection and halt
-posting.
-Use the **Filters** tab to manage Custom GPTs that score posts before posting.
+Use the **TG Scraping** tab to add Telegram channels and view posts in real time. You can also click **Start Posting** to forward items to your own channels. Press **Stop** to halt posting. Use the **Filters** tab to manage Custom GPTs that score posts before posting.
 
 ### Telegram Bot Setup
 
