@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
 
-export default function AdminTab() {
+export default function AdminTab({ instanceId }) {
   const [username, setUsername] = useState('')
   const [users, setUsers] = useState([])
   const [queue, setQueue] = useState([])
 
   const load = () => {
-    fetch('http://localhost:3001/api/approvers')
+    fetch(`http://localhost:3001/api/instances/${instanceId}/approvers`)
       .then(r => r.json())
       .then(data => setUsers(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -25,7 +26,7 @@ export default function AdminTab() {
 
   const add = () => {
     if (!username.trim()) return
-    fetch('http://localhost:3001/api/approvers', {
+    fetch(`http://localhost:3001/api/instances/${instanceId}/approvers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username.trim() })
@@ -36,7 +37,7 @@ export default function AdminTab() {
   }
 
   const remove = (name) => {
-    fetch(`http://localhost:3001/api/approvers?username=${name}`, {
+    fetch(`http://localhost:3001/api/instances/${instanceId}/approvers?username=${name}`, {
       method: 'DELETE'
     }).then(load).catch(() => {})
   }
@@ -76,4 +77,8 @@ export default function AdminTab() {
       </ul>
     </div>
   )
+}
+
+AdminTab.propTypes = {
+  instanceId: PropTypes.string.isRequired
 }
