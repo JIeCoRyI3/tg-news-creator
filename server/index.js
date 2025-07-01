@@ -16,6 +16,9 @@ const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink,
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 
+const INSTANCES_FILE = path.join(__dirname, 'instances.json');
+let instances = [];
+
 // Keep track of posts we've already scraped to avoid logging duplicates
 const scrapedPostUrls = new Set();
 
@@ -34,7 +37,38 @@ const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
 // list of allowed approver usernames in lower case
 let approvers = [];
 const awaitingPosts = new Map();
-const activeApprovers = new Set();
+const activeApprovers = new Map(); // id -> username
+
+function loadInstances() {
+  try {
+    const data = fs.readFileSync(INSTANCES_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) instances = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load instances', e);
+  }
+  computeApprovers();
+}
+
+function saveInstances() {
+  try {
+    fs.writeFileSync(INSTANCES_FILE, JSON.stringify(instances, null, 2));
+  } catch (e) {
+    console.error('Failed to save instances', e);
+  }
+  computeApprovers();
+}
+
+function computeApprovers() {
+  const set = new Set();
+  for (const inst of instances) {
+    if (Array.isArray(inst.approvers)) {
+      for (const u of inst.approvers) set.add(String(u).toLowerCase());
+    }
+  }
+  approvers = Array.from(set);
+  saveApprovers();
+}
 
 function loadTgSources() {
   try {
@@ -92,7 +126,7 @@ function saveApprovers() {
 
 loadTgSources();
 loadFilters();
-loadApprovers();
+loadInstances();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
@@ -121,7 +155,7 @@ botEvents.on('start_approving', (msg) => {
   const id = String(msg.from.id);
   const username = msg.from.username ? msg.from.username.toLowerCase() : '';
   if (approvers.includes(username)) {
-    activeApprovers.add(id);
+    activeApprovers.set(id, username);
     sendMessage(id, 'You will now receive approval requests.').catch(() => {});
   } else {
     sendMessage(id, 'You are not an approver.').catch(() => {});
@@ -304,29 +338,70 @@ app.get('/api/channels', (req, res) => {
   res.json(listChannels());
 });
 
-app.get('/api/approvers', (req, res) => {
-  res.json(approvers);
+app.get('/api/instances', (req, res) => {
+  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', mode = 'json', tab = 'tg' }) => ({ id, title, tgUrls, channels, filter, mode, tab })));
 });
 
-app.post('/api/approvers', (req, res) => {
+app.post('/api/instances', (req, res) => {
+  const { title } = req.body;
+  if (!title) return res.status(400).json({ error: 'title required' });
+  const inst = { id: Date.now().toString(16) + Math.random().toString(16).slice(2), title, tgUrls: [], channels: [], filter: 'none', mode: 'json', tab: 'tg', approvers: [] };
+  instances.push(inst);
+  saveInstances();
+  res.json(inst);
+});
+
+app.get('/api/instances/:id', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
+  res.json(inst);
+});
+
+app.put('/api/instances/:id', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
+  Object.assign(inst, req.body);
+  saveInstances();
+  res.json({ ok: true });
+});
+
+app.delete('/api/instances/:id', (req, res) => {
+  const idx = instances.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  instances.splice(idx, 1);
+  saveInstances();
+  res.json({ ok: true });
+});
+
+app.get('/api/instances/:id/approvers', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  res.json(inst && Array.isArray(inst.approvers) ? inst.approvers : []);
+});
+
+app.post('/api/instances/:id/approvers', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
   const { username } = req.body;
   if (!username) return res.status(400).json({ error: 'username required' });
   const clean = String(username).replace(/^@/, '').toLowerCase();
-  if (!approvers.includes(clean)) {
-    approvers.push(clean);
-    saveApprovers();
+  inst.approvers = inst.approvers || [];
+  if (!inst.approvers.includes(clean)) {
+    inst.approvers.push(clean);
+    saveInstances();
   }
   res.json({ ok: true });
 });
 
-app.delete('/api/approvers', (req, res) => {
+app.delete('/api/instances/:id/approvers', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
   const { username } = req.query;
   if (!username) return res.status(400).json({ error: 'username required' });
   const clean = String(username).replace(/^@/, '').toLowerCase();
-  const idx = approvers.findIndex(u => u === clean);
+  const idx = (inst.approvers || []).findIndex(u => u === clean);
   if (idx !== -1) {
-    approvers.splice(idx, 1);
-    saveApprovers();
+    inst.approvers.splice(idx, 1);
+    saveInstances();
   }
   res.json({ ok: true });
 });
@@ -361,10 +436,15 @@ function postToChannel({ channel, text, media }) {
 
 app.post('/api/post', async (req, res) => {
   try {
-    const { channel, text, media } = req.body;
+    const { channel, text, media, instanceId } = req.body;
     if (!channel) return res.status(400).json({ error: 'channel required' });
     if (!text && !media) return res.status(400).json({ error: 'text or media required' });
-    const targets = [...activeApprovers];
+    const inst = instances.find(i => i.id === instanceId);
+    const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
+    const targets = [];
+    for (const [uid, name] of activeApprovers.entries()) {
+      if (approverList.includes(name)) targets.push(uid);
+    }
     if (targets.length) {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const info = { id, channel, text, media };
