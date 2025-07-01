@@ -1,0 +1,18 @@
+.shadcn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background-color: #1f1f1f;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+.shadcn-btn:hover {
+  background-color: #333;
+}
+.shadcn-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

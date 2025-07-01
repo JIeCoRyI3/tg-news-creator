@@ -9,6 +9,7 @@ import TGSources from './components/TGSources.jsx'
 import FilterSelect from './components/FilterSelect.jsx'
 import FiltersTab from './components/FiltersTab.jsx'
 import AdminTab from './components/AdminTab.jsx'
+import Button from './components/ui/Button.jsx'
 
 import './App.css'
 
@@ -51,6 +52,7 @@ function App() {
   const tabRef = useRef(tab)
   const filterRef = useRef(selectedFilter)
   const [, forceTick] = useState(0)
+  const controlsDisabled = tab === 'tg' && (!selectedChannels.length || selectedFilter === 'none')
   const toggle = (source) => {
     setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
   }
@@ -152,6 +154,10 @@ function App() {
   }
 
   const startScraping = () => {
+    if (!selectedChannels.length || selectedFilter === 'none') {
+      window.alert('Please select at least one channel and a filter before starting.');
+      return;
+    }
     setPosting(false)
     const params = new URLSearchParams()
     params.append('urls', tgUrls.join(','))
@@ -162,6 +168,10 @@ function App() {
   const startPosting = () => {
     if (posting) {
       window.alert('Posting is already started')
+      return
+    }
+    if (tab === 'tg' && (!selectedChannels.length || selectedFilter === 'none')) {
+      window.alert('Please select at least one channel and a filter before starting.');
       return
     }
     if (!window.confirm('Start posting to the selected Telegram channels?')) return
@@ -254,10 +264,10 @@ function App() {
     <div className="App">
       <h3>News Aggregator</h3>
       <div className="tabs">
-        <button onClick={() => setTab('news')} className={tab === 'news' ? 'active' : ''}>News Sources</button>
-        <button onClick={() => setTab('tg')} className={tab === 'tg' ? 'active' : ''}>TG Scraping</button>
-        <button onClick={() => setTab('filters')} className={tab === 'filters' ? 'active' : ''}>Filters</button>
-        <button onClick={() => setTab('admin')} className={tab === 'admin' ? 'active' : ''}>Administration</button>
+        <Button onClick={() => setTab('news')} className={tab === 'news' ? 'active' : ''}>News Sources</Button>
+        <Button onClick={() => setTab('tg')} className={tab === 'tg' ? 'active' : ''}>TG Scraping</Button>
+        <Button onClick={() => setTab('filters')} className={tab === 'filters' ? 'active' : ''}>Filters</Button>
+        <Button onClick={() => setTab('admin')} className={tab === 'admin' ? 'active' : ''}>Administration</Button>
       </div>
       <Logs logs={logs} />
       <ChannelSelect channels={channels} selected={selectedChannels} setSelected={setSelectedChannels} />
@@ -281,6 +291,7 @@ function App() {
             startPost={startPosting}
             stop={stop}
             startLabel={tab === 'news' ? 'Start Getting' : tab === 'tg' ? 'Start Scraping' : 'Start Getting'}
+            disabled={controlsDisabled}
           />
         </>
       )}

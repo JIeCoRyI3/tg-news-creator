@@ -15,7 +15,7 @@ const { telegram_scraper } = require('telegram-scraper');
 const sources = require('./sources');
 const fs = require('fs');
 const multer = require('multer');
-const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback } = require('../bot');
+const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback, deleteMessage } = require('../bot');
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 
@@ -114,6 +114,9 @@ botEvents.on('callback', async (query) => {
       awaitingPosts.delete(id);
       answerCallback(query.id, 'Cancelled').catch(() => {});
     }
+  }
+  if (query.message) {
+    deleteMessage(query.message.chat.id, query.message.message_id).catch(() => {});
   }
 });
 

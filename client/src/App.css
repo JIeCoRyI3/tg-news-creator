@@ -112,6 +112,42 @@
   gap: 0.5rem;
 }
 
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tabs button {
+  background-color: #1f1f1f;
+  border: 1px solid #555;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+}
+
+.tabs button.active {
+  background-color: #333;
+  border-color: #888;
+}
+
+.channel-select,
+.filter-select,
+.tg-sources {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tg-sources ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+
+.tg-sources li {
+  margin-bottom: 0.25rem;
+}
+
 .tg-input {
   margin-bottom: 0.5rem;
   display: flex;

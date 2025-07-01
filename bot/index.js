@@ -166,7 +166,11 @@ function answerCallback(id, text) {
   return bot.answerCallbackQuery(id, { text });
 }
 
-module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback };
+function deleteMessage(chatId, messageId) {
+  return bot.deleteMessage(chatId, messageId);
+}
+
+module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback, deleteMessage };
 
 (async () => {
   await loadChannels();
