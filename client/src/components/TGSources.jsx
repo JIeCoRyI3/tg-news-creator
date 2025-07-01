@@ -11,8 +11,10 @@ export default function TGSources({ urls, addUrl, removeUrl }) {
   }
   return (
     <div className="tg-sources">
-      <input value={value} onChange={e => setValue(e.target.value)} placeholder="https://t.me/s/channel" />
-      <Button onClick={onAdd}>Add</Button>
+      <div className="tg-input">
+        <input value={value} onChange={e => setValue(e.target.value)} placeholder="https://t.me/s/channel" />
+        <Button onClick={onAdd}>Add</Button>
+      </div>
       <ul>
         {urls.map(u => (
           <li key={u}>
