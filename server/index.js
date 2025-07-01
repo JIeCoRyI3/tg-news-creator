@@ -12,7 +12,19 @@ const { marked } = require('marked');
 const { telegram_scraper } = require('telegram-scraper');
 const fs = require('fs');
 const multer = require('multer');
-const { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback, deleteMessage } = require('../bot');
+const {
+  listChannels,
+  listInstanceChannels,
+  addChannel,
+  sendMessage,
+  sendPhoto,
+  sendVideo,
+  botEvents,
+  resolveLink,
+  sendApprovalRequest,
+  answerCallback,
+  deleteMessage
+} = require('../bot');
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 
@@ -404,6 +416,22 @@ app.delete('/api/instances/:id/approvers', (req, res) => {
     saveInstances();
   }
   res.json({ ok: true });
+});
+
+app.get('/api/instances/:id/post-channels', (req, res) => {
+  res.json(listInstanceChannels(req.params.id));
+});
+
+app.post('/api/instances/:id/post-channels', async (req, res) => {
+  try {
+    const { link } = req.body;
+    if (!link) return res.status(400).json({ error: 'link required' });
+    const info = await addChannel(req.params.id, link);
+    if (!info) return res.status(400).json({ error: 'failed to resolve' });
+    res.json(info);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/awaiting', (req, res) => {

@@ -20,6 +20,7 @@ const ADMIN_FILE = path.join(__dirname, '../server/admin-channels.json');
 const bot = new TelegramBot(token, { polling: true });
 
 const adminChannels = new Map();
+const channelsByInstance = new Map(); // instanceId -> Set of channel ids
 
 async function resolveLink(link) {
   const match = link.match(/t\.me\/(.+)/i);
@@ -49,6 +50,8 @@ async function loadChannels() {
         if (res) {
           const [id, info] = res;
           adminChannels.set(id, info);
+          if (!channelsByInstance.has('default')) channelsByInstance.set('default', new Set());
+          channelsByInstance.get('default').add(id);
           console.log('Resolved channel', link, '->', id);
           botEvents.emit('log', `Resolved channel ${link} -> ${id}`);
         } else {
@@ -56,9 +59,21 @@ async function loadChannels() {
         }
       }
       persistChannels();
-    } else {
+    } else if (Object.values(parsed).every(v => v && typeof v === 'object' && (v.title || v.username))) {
       for (const [id, info] of Object.entries(parsed)) {
         adminChannels.set(id, info);
+        if (!channelsByInstance.has('default')) channelsByInstance.set('default', new Set());
+        channelsByInstance.get('default').add(id);
+      }
+    } else {
+      for (const [inst, obj] of Object.entries(parsed)) {
+        if (obj && typeof obj === 'object') {
+          for (const [id, info] of Object.entries(obj)) {
+            adminChannels.set(id, info);
+            if (!channelsByInstance.has(inst)) channelsByInstance.set(inst, new Set());
+            channelsByInstance.get(inst).add(id);
+          }
+        }
       }
     }
   } catch (e) {
@@ -68,8 +83,12 @@ async function loadChannels() {
 
 function persistChannels() {
   const obj = {};
-  for (const [id, info] of adminChannels.entries()) {
-    obj[id] = info;
+  for (const [inst, ids] of channelsByInstance.entries()) {
+    obj[inst] = {};
+    for (const id of ids) {
+      const info = adminChannels.get(id);
+      if (info) obj[inst][id] = info;
+    }
   }
   try {
     fs.writeFileSync(ADMIN_FILE, JSON.stringify(obj, null, 2));
@@ -99,6 +118,27 @@ function listChannels() {
   const obj = {};
   for (const [id, info] of adminChannels.entries()) obj[id] = info;
   return obj;
+}
+
+function listInstanceChannels(instanceId) {
+  const obj = {};
+  const ids = channelsByInstance.get(instanceId) || new Set();
+  for (const id of ids) {
+    const info = adminChannels.get(id);
+    if (info) obj[id] = info;
+  }
+  return obj;
+}
+
+async function addChannel(instanceId, link) {
+  const res = await resolveLink(link);
+  if (!res) return null;
+  const [id, info] = res;
+  adminChannels.set(id, info);
+  if (!channelsByInstance.has(instanceId)) channelsByInstance.set(instanceId, new Set());
+  channelsByInstance.get(instanceId).add(id);
+  persistChannels();
+  return { id, ...info };
 }
 
 async function sendMessage(channel, text, options = {}) {
@@ -170,7 +210,19 @@ function deleteMessage(chatId, messageId) {
   return bot.deleteMessage(chatId, messageId);
 }
 
-module.exports = { listChannels, sendMessage, sendPhoto, sendVideo, botEvents, resolveLink, sendApprovalRequest, answerCallback, deleteMessage };
+module.exports = {
+  listChannels,
+  listInstanceChannels,
+  addChannel,
+  sendMessage,
+  sendPhoto,
+  sendVideo,
+  botEvents,
+  resolveLink,
+  sendApprovalRequest,
+  answerCallback,
+  deleteMessage
+};
 
 (async () => {
   await loadChannels();

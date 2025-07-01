@@ -6,6 +6,8 @@ export default function AdminTab({ instanceId }) {
   const [username, setUsername] = useState('')
   const [users, setUsers] = useState([])
   const [queue, setQueue] = useState([])
+  const [channelLink, setChannelLink] = useState('')
+  const [channels, setChannels] = useState([])
 
   const load = () => {
     fetch(`http://localhost:3001/api/instances/${instanceId}/approvers`)
@@ -15,6 +17,13 @@ export default function AdminTab({ instanceId }) {
     fetch('http://localhost:3001/api/awaiting')
       .then(r => r.json())
       .then(data => setQueue(Array.isArray(data) ? data : []))
+      .catch(() => {})
+    fetch(`http://localhost:3001/api/instances/${instanceId}/post-channels`)
+      .then(r => r.json())
+      .then(data => {
+        const arr = Object.entries(data).map(([cid, info]) => ({ id: cid, ...info }))
+        setChannels(arr)
+      })
       .catch(() => {})
   }
 
@@ -32,6 +41,18 @@ export default function AdminTab({ instanceId }) {
       body: JSON.stringify({ username: username.trim() })
     }).then(() => {
       setUsername('')
+      load()
+    }).catch(() => {})
+  }
+
+  const addPostChannel = () => {
+    if (!channelLink.trim()) return
+    fetch(`http://localhost:3001/api/instances/${instanceId}/post-channels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ link: channelLink.trim() })
+    }).then(() => {
+      setChannelLink('')
       load()
     }).catch(() => {})
   }
@@ -61,6 +82,16 @@ export default function AdminTab({ instanceId }) {
       <ul>
         {users.map(u => (
           <li key={u}><span>{u}</span> <Button onClick={() => remove(u)}>x</Button></li>
+        ))}
+      </ul>
+      <h4>Posting Channels</h4>
+      <div className="tg-input">
+        <input value={channelLink} onChange={e => setChannelLink(e.target.value)} placeholder="https://t.me/channel" />
+        <Button onClick={addPostChannel}>Add posting channel</Button>
+      </div>
+      <ul>
+        {channels.map(c => (
+          <li key={c.id}>{c.username || c.title}</li>
         ))}
       </ul>
       <h4>Awaiting Approval</h4>
