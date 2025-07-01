@@ -131,11 +131,14 @@
 }
 
 .channel-select,
-.filter-select,
-.tg-sources {
+.filter-select {
   margin-bottom: 1rem;
   display: flex;
   gap: 0.5rem;
+}
+
+.tg-sources {
+  margin-bottom: 1rem;
 }
 
 .tg-sources ul {
