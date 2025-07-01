@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import Button from './ui/Button.jsx'
 
 export default function FiltersTab({ filters, setFilters }) {
   const [showForm, setShowForm] = useState(false)
@@ -87,11 +88,11 @@ export default function FiltersTab({ filters, setFilters }) {
           </select>
           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="Instructions" />
           <input type="file" multiple onChange={e => uploadFiles(Array.from(e.target.files))} />
-          <button onClick={create}>Save</button>
-          <button onClick={() => setShowForm(false)}>Cancel</button>
+          <Button onClick={create}>Save</Button>
+          <Button onClick={() => setShowForm(false)}>Cancel</Button>
         </div>
       ) : (
-        <button onClick={() => setShowForm(true)}>Create a filter</button>
+        <Button onClick={() => setShowForm(true)}>Create a filter</Button>
       )}
     </div>
   )

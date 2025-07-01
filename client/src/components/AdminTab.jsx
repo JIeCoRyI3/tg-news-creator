@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Button from './ui/Button.jsx'
 
 export default function AdminTab() {
   const [username, setUsername] = useState('')
@@ -54,11 +55,11 @@ export default function AdminTab() {
     <div className="admin-tab">
       <div className="tg-input">
         <input value={username} onChange={e => setUsername(e.target.value)} placeholder="@username" />
-        <button onClick={add}>Add Approver</button>
+        <Button onClick={add}>Add Approver</Button>
       </div>
       <ul>
         {users.map(u => (
-          <li key={u}><span>{u}</span> <button onClick={() => remove(u)}>x</button></li>
+          <li key={u}><span>{u}</span> <Button onClick={() => remove(u)}>x</Button></li>
         ))}
       </ul>
       <h4>Awaiting Approval</h4>
@@ -68,8 +69,8 @@ export default function AdminTab() {
             <div>{p.channel}</div>
             <div>{p.text?.slice(0, 100)}</div>
             {p.media && <img src={p.media} alt="" />}
-            <button onClick={() => approve(p.id)}>Approve</button>
-            <button onClick={() => cancel(p.id)}>Cancel</button>
+            <Button onClick={() => approve(p.id)}>Approve</Button>
+            <Button onClick={() => cancel(p.id)}>Cancel</Button>
           </li>
         ))}
       </ul>

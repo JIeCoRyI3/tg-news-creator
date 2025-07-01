@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import Button from './ui/Button.jsx'
 
 export default function TGSources({ urls, addUrl, removeUrl }) {
   const [value, setValue] = useState('')
@@ -11,11 +12,11 @@ export default function TGSources({ urls, addUrl, removeUrl }) {
   return (
     <div className="tg-sources">
       <input value={value} onChange={e => setValue(e.target.value)} placeholder="https://t.me/s/channel" />
-      <button onClick={onAdd}>Add</button>
+      <Button onClick={onAdd}>Add</Button>
       <ul>
         {urls.map(u => (
           <li key={u}>
-            {u} <button onClick={() => removeUrl(u)}>x</button>
+            {u} <Button onClick={() => removeUrl(u)}>x</Button>
           </li>
         ))}
       </ul>

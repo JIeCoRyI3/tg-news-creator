@@ -1,11 +1,12 @@
 import PropTypes from 'prop-types'
+import Button from './ui/Button.jsx'
 
-export default function Controls({ startGet, startPost, stop, startLabel = 'Start Getting' }) {
+export default function Controls({ startGet, startPost, stop, startLabel = 'Start Getting', disabled = false }) {
   return (
     <div className="controls">
-      <button onClick={startGet}>{startLabel}</button>
-      <button onClick={startPost}>Start Posting</button>
-      <button onClick={stop}>Stop</button>
+      <Button onClick={startGet} disabled={disabled}>{startLabel}</Button>
+      <Button onClick={startPost} disabled={disabled}>Start Posting</Button>
+      <Button onClick={stop} disabled={disabled}>Stop</Button>
     </div>
   )
 }
@@ -14,5 +15,6 @@ Controls.propTypes = {
   startGet: PropTypes.func.isRequired,
   startPost: PropTypes.func.isRequired,
   stop: PropTypes.func.isRequired,
-  startLabel: PropTypes.string
+  startLabel: PropTypes.string,
+  disabled: PropTypes.bool
 }
