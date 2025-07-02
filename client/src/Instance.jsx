@@ -88,7 +88,9 @@ export default function Instance({ id, title }) {
 
   const connect = (endpoint, params) => {
     if (es) return
-    const eventSource = new EventSource(`http://localhost:3001${endpoint}?${params}`)
+    const qs = new URLSearchParams(params)
+    qs.append('instanceId', id)
+    const eventSource = new EventSource(`http://localhost:3001${endpoint}?${qs.toString()}`)
     setEs(eventSource)
     eventSource.onmessage = (e) => {
       const item = JSON.parse(e.data)
@@ -199,14 +201,14 @@ export default function Instance({ id, title }) {
   }, [])
 
   useEffect(() => {
-    const esLogs = new EventSource('http://localhost:3001/api/logs')
+    const esLogs = new EventSource(`http://localhost:3001/api/logs?instanceId=${id}`)
     esLogs.onmessage = (e) => {
       const data = JSON.parse(e.data)
       console.log(`[${title}] ${data.message}`)
       setLogs(prev => [`[${title}] ${data.message}`, ...prev].slice(0, 50))
     }
     return () => esLogs.close()
-  }, [title])
+  }, [title, id])
 
   useEffect(() => {
     fetch('http://localhost:3001/api/channels')

@@ -34,9 +34,10 @@ let instances = [];
 // Keep track of posts we've already scraped to avoid logging duplicates
 const scrapedPostUrls = new Set();
 
-function log(message) {
-  console.log(message);
-  botEvents.emit('log', message);
+function log(message, instanceId) {
+  const prefix = instanceId ? `[${instanceId}] ` : '';
+  console.log(prefix + message);
+  botEvents.emit('log', { message, instanceId });
 }
 
 const TG_SOURCES_FILE = path.join(__dirname, 'tg-sources.json');
@@ -168,9 +169,9 @@ botEvents.on('start_approving', (msg) => {
   const username = msg.from.username ? msg.from.username.toLowerCase() : '';
   if (approvers.includes(username)) {
     activeApprovers.set(id, username);
-    sendMessage(id, 'You will now receive approval requests.').catch(() => {});
+    sendMessage(id, 'You will now receive approval requests.', {}, undefined).catch(() => {});
   } else {
-    sendMessage(id, 'You are not an approver.').catch(() => {});
+    sendMessage(id, 'You are not an approver.', {}, undefined).catch(() => {});
   }
 });
 
@@ -454,12 +455,12 @@ app.post('/api/awaiting/:id/cancel', (req, res) => {
   res.json({ ok: true });
 });
 
-function postToChannel({ channel, text, media }) {
+function postToChannel({ channel, text, media, instanceId }) {
   return media
     ? (media.toLowerCase().endsWith('.mp4')
-        ? sendVideo(channel, media, text)
-        : sendPhoto(channel, media, text))
-    : sendMessage(channel, text);
+        ? sendVideo(channel, media, text, {}, instanceId)
+        : sendPhoto(channel, media, text, {}, instanceId))
+    : sendMessage(channel, text, {}, instanceId);
 }
 
 app.post('/api/post', async (req, res) => {
@@ -475,34 +476,38 @@ app.post('/api/post', async (req, res) => {
     }
     if (targets.length) {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const info = { id, channel, text, media };
+      const info = { id, channel, text, media, instanceId };
       awaitingPosts.set(id, info);
       for (const uid of targets) {
         sendApprovalRequest(uid, info).catch(() => {});
       }
-      log(`Queued post ${id} for approval`);
+      log(`Queued post ${id} for approval`, instanceId);
       res.json({ ok: true, awaiting: true, id });
       return;
     }
-    log(`Posting to ${channel}`);
-    await postToChannel({ channel, text, media });
-    log(`Posted to ${channel}`);
+    log(`Posting to ${channel}`, instanceId);
+    await postToChannel({ channel, text, media, instanceId });
+    log(`Posted to ${channel}`, instanceId);
     res.json({ ok: true });
   } catch (e) {
-    log(`Failed posting to ${req.body.channel}: ${e.message}`);
+    log(`Failed posting to ${req.body.channel}: ${e.message}`, instanceId);
     res.status(500).json({ error: e.message });
   }
 });
 
 app.get('/api/logs', (req, res) => {
+  const { instanceId } = req.query;
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive'
   });
   res.flushHeaders();
-  const logListener = (msg) => {
-    res.write(`data: ${JSON.stringify({ message: msg })}\n\n`);
+  const logListener = (info) => {
+    if (!info || typeof info.message !== 'string') return;
+    if (!instanceId || info.instanceId === instanceId || info.instanceId == null) {
+      res.write(`data: ${JSON.stringify({ message: info.message })}\n\n`);
+    }
   };
   botEvents.on('log', logListener);
   req.on('close', () => {
@@ -663,6 +668,7 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
 
 
 app.get('/api/tgnews', async (req, res) => {
+  const { instanceId } = req.query;
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -670,8 +676,11 @@ app.get('/api/tgnews', async (req, res) => {
   });
   res.flushHeaders();
 
-  const logListener = (msg) => {
-    res.write(`event: log\ndata: ${JSON.stringify({ message: msg })}\n\n`);
+  const logListener = (info) => {
+    if (!info || typeof info.message !== 'string') return;
+    if (!instanceId || info.instanceId === instanceId || info.instanceId == null) {
+      res.write(`event: log\ndata: ${JSON.stringify({ message: info.message })}\n\n`);
+    }
   };
   botEvents.on('log', logListener);
 
@@ -683,15 +692,15 @@ app.get('/api/tgnews', async (req, res) => {
   const sendItems = async () => {
     for (const url of urls) {
       try {
-        log(`Scraping TG ${url}`);
+        log(`Scraping TG ${url}`, instanceId);
         const items = await scrapeTelegramChannel(url);
         for (const item of items) {
           if (seen.has(item.url)) continue;
           seen.add(item.url);
           if (!includeHistory && initial) continue;
-          log(`Found post ${item.url}`);
+          log(`Found post ${item.url}`, instanceId);
           res.write(`data: ${JSON.stringify({ ...item, source: url })}\n\n`);
-          log(`Sent post ${item.url}`);
+          log(`Sent post ${item.url}`, instanceId);
         }
       } catch (err) {
         console.error('Error fetching tg source', url, err.message);
