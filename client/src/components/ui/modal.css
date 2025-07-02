@@ -1,0 +1,25 @@
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: #2b2b2b;
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.modal-actions {
+  margin-top: 1rem;
+  text-align: right;
+}

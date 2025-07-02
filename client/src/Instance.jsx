@@ -29,6 +29,7 @@ export default function Instance({ id, title }) {
   const channelsRef = useRef(selectedChannels)
   const tabRef = useRef(tab)
   const filterRef = useRef(selectedFilter)
+  const filtersRef = useRef(filters)
   const [, forceTick] = useState(0)
   const controlsDisabled = !selectedChannels.length || selectedFilter === 'none'
 
@@ -86,6 +87,10 @@ export default function Instance({ id, title }) {
     filterRef.current = selectedFilter
   }, [selectedFilter])
 
+  useEffect(() => {
+    filtersRef.current = filters
+  }, [filters])
+
   const connect = (endpoint, params) => {
     if (es) return
     const qs = new URLSearchParams(params)
@@ -119,7 +124,9 @@ export default function Instance({ id, title }) {
           })
             .then(r => r.json())
             .then(data => {
-              if (data.score > 7) send(data.score)
+              const fobj = filtersRef.current.find(f => f.id === fid)
+              const threshold = fobj && typeof fobj.min_score === 'number' ? fobj.min_score : 7
+              if (data.score > threshold) send(data.score)
             })
             .catch(() => {})
         } else {
