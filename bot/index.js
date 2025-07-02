@@ -141,38 +141,44 @@ async function addChannel(instanceId, link) {
   return { id, ...info };
 }
 
-async function sendMessage(channel, text, options = {}) {
+async function sendMessage(channel, text, options = {}, instanceId) {
   try {
     await bot.sendMessage(channel, text, { parse_mode: 'Markdown', ...options });
-    console.log('Sent message to', channel);
-    botEvents.emit('log', `Sent message to ${channel}`);
+    const msg = `Sent message to ${channel}`;
+    console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
+    botEvents.emit('log', { message: msg, instanceId });
   } catch (e) {
-    console.error('Failed to send message', channel, e.message);
-    botEvents.emit('log', `Failed to send message to ${channel}: ${e.message}`);
+    const msg = `Failed to send message to ${channel}: ${e.message}`;
+    console.error(instanceId ? `[${instanceId}] ${msg}` : msg);
+    botEvents.emit('log', { message: msg, instanceId });
     throw e;
   }
 }
 
-async function sendPhoto(channel, url, caption, options = {}) {
+async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   try {
     await bot.sendPhoto(channel, url, { caption, parse_mode: 'Markdown', ...options });
-    console.log('Sent photo to', channel);
-    botEvents.emit('log', `Sent photo to ${channel}`);
+    const msg = `Sent photo to ${channel}`;
+    console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
+    botEvents.emit('log', { message: msg, instanceId });
   } catch (e) {
-    console.error('Failed to send photo', channel, e.message);
-    botEvents.emit('log', `Failed to send photo to ${channel}: ${e.message}`);
+    const msg = `Failed to send photo to ${channel}: ${e.message}`;
+    console.error(instanceId ? `[${instanceId}] ${msg}` : msg);
+    botEvents.emit('log', { message: msg, instanceId });
     throw e;
   }
 }
 
-async function sendVideo(channel, url, caption, options = {}) {
+async function sendVideo(channel, url, caption, options = {}, instanceId) {
   try {
     await bot.sendVideo(channel, url, { caption, parse_mode: 'Markdown', ...options });
-    console.log('Sent video to', channel);
-    botEvents.emit('log', `Sent video to ${channel}`);
+    const msg = `Sent video to ${channel}`;
+    console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
+    botEvents.emit('log', { message: msg, instanceId });
   } catch (e) {
-    console.error('Failed to send video', channel, e.message);
-    botEvents.emit('log', `Failed to send video to ${channel}: ${e.message}`);
+    const msg = `Failed to send video to ${channel}: ${e.message}`;
+    console.error(instanceId ? `[${instanceId}] ${msg}` : msg);
+    botEvents.emit('log', { message: msg, instanceId });
     throw e;
   }
 }
