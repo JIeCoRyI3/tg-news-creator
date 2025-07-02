@@ -12,7 +12,7 @@ import Button from './components/ui/Button.jsx'
 
 import './App.css'
 
-export default function Instance({ id, title }) {
+export default function Instance({ id, title, onDelete }) {
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
   const [channels, setChannels] = useState([])
@@ -248,7 +248,7 @@ export default function Instance({ id, title }) {
           <FilterSelect filters={filters} selected={selectedFilter} setSelected={setSelectedFilter} />
         </>
       ) : tab === 'admin' ? (
-        <AdminTab instanceId={id} />
+        <AdminTab instanceId={id} onDelete={() => onDelete && onDelete(id)} />
       ) : (
         <FiltersTab filters={filters} setFilters={setFilters} />
       )}

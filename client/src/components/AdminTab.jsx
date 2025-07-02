@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
+import Modal from './ui/Modal.jsx'
 
-export default function AdminTab({ instanceId }) {
+export default function AdminTab({ instanceId, onDelete }) {
   const [username, setUsername] = useState('')
   const [users, setUsers] = useState([])
   const [queue, setQueue] = useState([])
   const [channelLink, setChannelLink] = useState('')
   const [channels, setChannels] = useState([])
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const load = () => {
     fetch(`http://localhost:3001/api/instances/${instanceId}/approvers`)
@@ -73,6 +75,15 @@ export default function AdminTab({ instanceId }) {
       .then(load).catch(() => {})
   }
 
+  const doDelete = () => {
+    fetch(`http://localhost:3001/api/instances/${instanceId}`, { method: 'DELETE' })
+      .then(() => {
+        setConfirmDelete(false)
+        if (onDelete) onDelete()
+      })
+      .catch(() => setConfirmDelete(false))
+  }
+
   return (
     <div className="admin-tab">
       <div className="tg-input">
@@ -106,10 +117,19 @@ export default function AdminTab({ instanceId }) {
           </li>
         ))}
       </ul>
+      <Button onClick={() => setConfirmDelete(true)}>Delete instance</Button>
+      <Modal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        actions={<Button onClick={doDelete}>Delete</Button>}
+      >
+        Are you sure you want to delete this instance?
+      </Modal>
     </div>
   )
 }
 
 AdminTab.propTypes = {
-  instanceId: PropTypes.string.isRequired
+  instanceId: PropTypes.string.isRequired,
+  onDelete: PropTypes.func
 }
