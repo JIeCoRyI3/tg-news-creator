@@ -505,7 +505,7 @@ app.get('/api/logs', (req, res) => {
   res.flushHeaders();
   const logListener = (info) => {
     if (!info || typeof info.message !== 'string') return;
-    if (!instanceId || info.instanceId === instanceId || info.instanceId == null) {
+    if (info.instanceId === instanceId) {
       res.write(`data: ${JSON.stringify({ message: info.message })}\n\n`);
     }
   };
@@ -678,7 +678,7 @@ app.get('/api/tgnews', async (req, res) => {
 
   const logListener = (info) => {
     if (!info || typeof info.message !== 'string') return;
-    if (!instanceId || info.instanceId === instanceId || info.instanceId == null) {
+    if (info.instanceId === instanceId) {
       res.write(`event: log\ndata: ${JSON.stringify({ message: info.message })}\n\n`);
     }
   };
