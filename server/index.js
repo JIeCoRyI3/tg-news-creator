@@ -105,7 +105,12 @@ function loadFilters() {
   try {
     const data = fs.readFileSync(FILTERS_FILE, 'utf8');
     const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) filters = parsed;
+    if (Array.isArray(parsed)) {
+      filters = parsed.map(f => {
+        const ms = typeof f.min_score === 'number' ? f.min_score : 7;
+        return { ...f, min_score: ms };
+      });
+    }
   } catch (e) {
     if (e.code !== 'ENOENT') console.error('Failed to load filters', e);
   }
@@ -586,7 +591,7 @@ app.post('/api/vector-stores', upload.array('attachments'), async (req, res) => 
 
 app.post('/api/filters', upload.none(), async (req, res) => {
   try {
-    const { title, model, instructions, vector_store_id } = req.body;
+    const { title, model, instructions, vector_store_id, min_score } = req.body;
     if (!title || !model || !instructions) return res.status(400).json({ error: 'missing fields' });
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     log(`Creating filter ${title}`);
@@ -598,7 +603,8 @@ app.post('/api/filters', upload.none(), async (req, res) => {
       tools: vectorStoreId ? [{ type: 'file_search' }] : [],
       tool_resources: vectorStoreId ? { file_search: { vector_store_ids: [vectorStoreId] } } : undefined
     });
-    const info = { id: createResp.id, title, model, instructions, file_ids: [], vector_store_id: vectorStoreId };
+    const ms = parseFloat(min_score);
+    const info = { id: createResp.id, title, model, instructions, file_ids: [], vector_store_id: vectorStoreId, min_score: isNaN(ms) ? 7 : ms };
     filters.push(info);
     saveFilters();
     log(`Created filter ${title}`);
@@ -609,6 +615,18 @@ app.post('/api/filters', upload.none(), async (req, res) => {
     log(`Failed to create filter: ${msg}`);
     res.status(500).json({ error: msg });
   }
+});
+
+app.put('/api/filters/:id', (req, res) => {
+  const { id } = req.params;
+  const filter = filters.find(f => f.id === id);
+  if (!filter) return res.status(404).json({ error: 'not found' });
+  if (req.body.min_score != null) {
+    const ms = parseFloat(req.body.min_score);
+    filter.min_score = isNaN(ms) ? filter.min_score : ms;
+  }
+  saveFilters();
+  res.json(filter);
 });
 
 app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res) => {

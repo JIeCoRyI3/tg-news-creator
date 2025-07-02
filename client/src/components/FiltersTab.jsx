@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
+import Modal from './ui/Modal.jsx'
 
 export default function FiltersTab({ filters, setFilters }) {
   const [showForm, setShowForm] = useState(false)
@@ -10,6 +11,8 @@ export default function FiltersTab({ filters, setFilters }) {
   const [instructions, setInstructions] = useState('')
   const [files, setFiles] = useState([])
   const [vectorId, setVectorId] = useState(null)
+  const [minScore, setMinScore] = useState(7)
+  const [openFilter, setOpenFilter] = useState(null)
 
   useEffect(() => {
     fetch('http://localhost:3001/api/models')
@@ -28,6 +31,7 @@ export default function FiltersTab({ filters, setFilters }) {
     fd.append('title', title)
     fd.append('model', model)
     fd.append('instructions', instructions)
+    fd.append('min_score', minScore)
     if (vectorId) fd.append('vector_store_id', vectorId)
     fetch('http://localhost:3001/api/filters', {
       method: 'POST',
@@ -41,6 +45,7 @@ export default function FiltersTab({ filters, setFilters }) {
         setInstructions('')
         setFiles([])
         setVectorId(null)
+        setMinScore(7)
       })
       .catch(() => {})
   }
@@ -68,7 +73,11 @@ export default function FiltersTab({ filters, setFilters }) {
     <div className="filters-tab">
       <ul>
         {filters.map(f => (
-          <li key={f.id}>{f.title}</li>
+          <li key={f.id}>
+            <span onClick={() => setOpenFilter(f)} style={{ cursor: 'pointer' }}>
+              {f.title}
+            </span>
+          </li>
         ))}
       </ul>
       {showForm ? (
@@ -87,6 +96,7 @@ export default function FiltersTab({ filters, setFilters }) {
             )}
           </select>
           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="Instructions" />
+          <input type="number" value={minScore} onChange={e => setMinScore(Number(e.target.value))} placeholder="Min score" />
           <input type="file" multiple onChange={e => uploadFiles(Array.from(e.target.files))} />
           <Button onClick={create}>Save</Button>
           <Button onClick={() => setShowForm(false)}>Cancel</Button>
@@ -94,6 +104,27 @@ export default function FiltersTab({ filters, setFilters }) {
       ) : (
         <Button onClick={() => setShowForm(true)}>Create a filter</Button>
       )}
+      <Modal open={!!openFilter} onClose={() => setOpenFilter(null)}>
+        {openFilter && (
+          <div>
+            <h4>{openFilter.title}</h4>
+            <div>Model: {openFilter.model}</div>
+            <div>Min score: <input type="number" value={openFilter.min_score} onChange={e => setOpenFilter({ ...openFilter, min_score: Number(e.target.value) })} /></div>
+            <pre>{openFilter.instructions}</pre>
+            <Button onClick={() => {
+              fetch(`http://localhost:3001/api/filters/${openFilter.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ min_score: openFilter.min_score })
+              }).then(r => r.json())
+                .then(data => {
+                  setFilters(prev => prev.map(f => f.id === data.id ? data : f))
+                  setOpenFilter(null)
+                }).catch(() => {})
+            }}>Save</Button>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
