@@ -1,14 +1,16 @@
 import PropTypes from 'prop-types'
+import Button from './Button.jsx'
 import './modal.css'
 
-export default function Modal({ open, onClose, children }) {
+export default function Modal({ open, onClose, children, actions = null }) {
   if (!open) return null
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         {children}
         <div className="modal-actions">
-          <button onClick={onClose}>Close</button>
+          {actions}
+          <Button onClick={onClose}>Close</Button>
         </div>
       </div>
     </div>
@@ -18,5 +20,6 @@ export default function Modal({ open, onClose, children }) {
 Modal.propTypes = {
   open: PropTypes.bool,
   onClose: PropTypes.func,
-  children: PropTypes.node
+  children: PropTypes.node,
+  actions: PropTypes.node
 }

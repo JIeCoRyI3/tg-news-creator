@@ -104,24 +104,31 @@ export default function FiltersTab({ filters, setFilters }) {
       ) : (
         <Button onClick={() => setShowForm(true)}>Create a filter</Button>
       )}
-      <Modal open={!!openFilter} onClose={() => setOpenFilter(null)}>
+      <Modal
+        open={!!openFilter}
+        onClose={() => setOpenFilter(null)}
+        actions={openFilter && (
+          <Button onClick={() => {
+            fetch(`http://localhost:3001/api/filters/${openFilter.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ min_score: openFilter.min_score })
+            }).then(r => r.json())
+              .then(data => {
+                setFilters(prev => prev.map(f => f.id === data.id ? data : f))
+                setOpenFilter(null)
+              }).catch(() => {})
+          }}>Save</Button>
+        )}
+      >
         {openFilter && (
           <div>
             <h4>{openFilter.title}</h4>
             <div>Model: {openFilter.model}</div>
-            <div>Min score: <input type="number" value={openFilter.min_score} onChange={e => setOpenFilter({ ...openFilter, min_score: Number(e.target.value) })} /></div>
-            <pre>{openFilter.instructions}</pre>
-            <Button onClick={() => {
-              fetch(`http://localhost:3001/api/filters/${openFilter.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ min_score: openFilter.min_score })
-              }).then(r => r.json())
-                .then(data => {
-                  setFilters(prev => prev.map(f => f.id === data.id ? data : f))
-                  setOpenFilter(null)
-                }).catch(() => {})
-            }}>Save</Button>
+            <div>
+              Min score: <input type="number" value={openFilter.min_score} onChange={e => setOpenFilter({ ...openFilter, min_score: Number(e.target.value) })} />
+            </div>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>{openFilter.instructions}</pre>
           </div>
         )}
       </Modal>
