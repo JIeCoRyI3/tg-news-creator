@@ -17,9 +17,13 @@
   border-radius: 8px;
   max-width: 500px;
   width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .modal-actions {
   margin-top: 1rem;
   text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
