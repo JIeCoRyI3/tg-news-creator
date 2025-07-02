@@ -28,6 +28,10 @@ export default function App() {
     setTitle('')
   }
 
+  const removeInstance = (instId) => {
+    setInstances(prev => prev.filter(i => i.id !== instId))
+  }
+
   return (
     <div className="App">
       <h2>Instances</h2>
@@ -36,7 +40,12 @@ export default function App() {
         <Button onClick={add}>Add new instance</Button>
       </div>
       {instances.map(inst => (
-        <Instance key={inst.id} id={inst.id} title={inst.title} />
+        <Instance
+          key={inst.id}
+          id={inst.id}
+          title={inst.title}
+          onDelete={() => removeInstance(inst.id)}
+        />
       ))}
     </div>
   )
