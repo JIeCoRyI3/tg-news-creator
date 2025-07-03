@@ -15,7 +15,7 @@ export default function FiltersTab({ filters, setFilters }) {
   const [openFilter, setOpenFilter] = useState(null)
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/models')
+    fetch('/api/models')
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data) && data.length) {
@@ -33,7 +33,7 @@ export default function FiltersTab({ filters, setFilters }) {
     fd.append('instructions', instructions)
     fd.append('min_score', minScore)
     if (vectorId) fd.append('vector_store_id', vectorId)
-    fetch('http://localhost:3001/api/filters', {
+    fetch('/api/filters', {
       method: 'POST',
       body: fd
     })
@@ -58,7 +58,7 @@ export default function FiltersTab({ filters, setFilters }) {
     }
     const fd = new FormData()
     selected.forEach(f => fd.append('attachments', f))
-    fetch('http://localhost:3001/api/vector-stores', {
+    fetch('/api/vector-stores', {
       method: 'POST',
       body: fd
     })
@@ -109,7 +109,7 @@ export default function FiltersTab({ filters, setFilters }) {
         onClose={() => setOpenFilter(null)}
         actions={openFilter && (
           <Button onClick={() => {
-            fetch(`http://localhost:3001/api/filters/${openFilter.id}`, {
+            fetch(`/api/filters/${openFilter.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ min_score: openFilter.min_score })

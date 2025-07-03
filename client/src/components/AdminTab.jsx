@@ -12,15 +12,15 @@ export default function AdminTab({ instanceId, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const load = () => {
-    fetch(`http://localhost:3001/api/instances/${instanceId}/approvers`)
+    fetch(`/api/instances/${instanceId}/approvers`)
       .then(r => r.json())
       .then(data => setUsers(Array.isArray(data) ? data : []))
       .catch(() => {})
-    fetch('http://localhost:3001/api/awaiting')
+    fetch('/api/awaiting')
       .then(r => r.json())
       .then(data => setQueue(Array.isArray(data) ? data : []))
       .catch(() => {})
-    fetch(`http://localhost:3001/api/instances/${instanceId}/post-channels`)
+    fetch(`/api/instances/${instanceId}/post-channels`)
       .then(r => r.json())
       .then(data => {
         const arr = Object.entries(data).map(([cid, info]) => ({ id: cid, ...info }))
@@ -37,7 +37,7 @@ export default function AdminTab({ instanceId, onDelete }) {
 
   const add = () => {
     if (!username.trim()) return
-    fetch(`http://localhost:3001/api/instances/${instanceId}/approvers`, {
+    fetch(`/api/instances/${instanceId}/approvers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username.trim() })
@@ -49,7 +49,7 @@ export default function AdminTab({ instanceId, onDelete }) {
 
   const addPostChannel = () => {
     if (!channelLink.trim()) return
-    fetch(`http://localhost:3001/api/instances/${instanceId}/post-channels`, {
+    fetch(`/api/instances/${instanceId}/post-channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ link: channelLink.trim() })
@@ -60,23 +60,23 @@ export default function AdminTab({ instanceId, onDelete }) {
   }
 
   const remove = (name) => {
-    fetch(`http://localhost:3001/api/instances/${instanceId}/approvers?username=${name}`, {
+    fetch(`/api/instances/${instanceId}/approvers?username=${name}`, {
       method: 'DELETE'
     }).then(load).catch(() => {})
   }
 
   const approve = (id) => {
-    fetch(`http://localhost:3001/api/awaiting/${id}/approve`, { method: 'POST' })
+    fetch(`/api/awaiting/${id}/approve`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
   const cancel = (id) => {
-    fetch(`http://localhost:3001/api/awaiting/${id}/cancel`, { method: 'POST' })
+    fetch(`/api/awaiting/${id}/cancel`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
   const doDelete = () => {
-    fetch(`http://localhost:3001/api/instances/${instanceId}`, { method: 'DELETE' })
+    fetch(`/api/instances/${instanceId}`, { method: 'DELETE' })
       .then(() => {
         setConfirmDelete(false)
         if (onDelete) onDelete()

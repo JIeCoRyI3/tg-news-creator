@@ -8,7 +8,7 @@ export default function App() {
   const [instances, setInstances] = useState([])
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/instances')
+    fetch('/api/instances')
       .then(r => r.json())
       .then(data => setInstances(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -17,7 +17,7 @@ export default function App() {
   const add = () => {
     const t = title.trim()
     if (!t) return
-    fetch('http://localhost:3001/api/instances', {
+    fetch('/api/instances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: t })

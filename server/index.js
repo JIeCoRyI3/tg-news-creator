@@ -198,6 +198,11 @@ const openai = new OpenAI({
 app.use(cors({ origin: '*' }));
 const PORT = process.env.PORT || 3001;
 
+const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
+if (fs.existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+}
+
 const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.0',
@@ -736,6 +741,13 @@ app.get('/api/tgnews', async (req, res) => {
     botEvents.off('log', logListener);
   });
 });
+
+if (fs.existsSync(CLIENT_DIST)) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/docs')) return next();
+    res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   log(`Server running on port ${PORT}`);

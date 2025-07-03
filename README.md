@@ -87,15 +87,10 @@ curl -F attachments=@notes.txt \
     http://localhost:3001/api/filters/<id>/files
 ```
 
-## Continuous Deployment
 
-Merged pull requests to `main` automatically deploy the server, bot and client
-to [Render](https://render.com). Set up two free services: a **web service** for
-`server/index.js` and a **static site** for the React build.
+## Sharing your local server
 
-Add `BOT_TOKEN` and `OPENAI_API_KEY` environment variables in the Render web
-service dashboard. In your GitHub repository settings create the secrets
-`RENDER_API_KEY`, `RENDER_SERVICE_ID` (web service ID) and `RENDER_STATIC_ID`
-(static site ID). When these secrets are present, the `deploy.yml` workflow will
-build the project and trigger a deployment whenever `main` is updated.
+You can quickly share the app while your laptop is running using [localtunnel](https://github.com/localtunnel/localtunnel).
+Run `npm run share` and keep the terminal open. The command builds the React client, starts the Node server and prints a temporary public URL.
+Open this URL on your phone to test the app.
 
