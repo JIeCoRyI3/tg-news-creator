@@ -1,0 +1,28 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm install --prefix server
+      - run: npm install --prefix client
+      - run: npm run build --prefix client
+      - name: Deploy server
+        uses: renderinc/render-deploy-action@v1
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+      - name: Deploy client
+        uses: renderinc/render-deploy-action@v1
+        with:
+          service-id: ${{ secrets.RENDER_STATIC_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
