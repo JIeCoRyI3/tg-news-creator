@@ -743,7 +743,8 @@ app.get('/api/tgnews', async (req, res) => {
 });
 
 if (fs.existsSync(CLIENT_DIST)) {
-  app.get('*', (req, res, next) => {
+  // Express@5 requires a named wildcard parameter
+  app.get('/*rest', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/docs')) return next();
     res.sendFile(path.join(CLIENT_DIST, 'index.html'));
   });
