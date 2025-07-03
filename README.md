@@ -84,6 +84,13 @@ Additional knowledge can be added later using `/api/filters/<id>/files`:
 
 ```bash
 curl -F attachments=@notes.txt \
-     http://localhost:3001/api/filters/<id>/files
+    http://localhost:3001/api/filters/<id>/files
 ```
+
+
+## Sharing your local server
+
+You can quickly share the app while your laptop is running using [localtunnel](https://github.com/localtunnel/localtunnel).
+Run `npm run share` and keep the terminal open. The command builds the React client, starts the Node server and prints a temporary public URL.
+Open this URL on your phone to test the app.
 

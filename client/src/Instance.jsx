@@ -12,6 +12,7 @@ import Button from './components/ui/Button.jsx'
 
 import './App.css'
 
+
 export default function Instance({ id, title, onDelete }) {
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
@@ -34,7 +35,7 @@ export default function Instance({ id, title, onDelete }) {
   const controlsDisabled = !selectedChannels.length || selectedFilter === 'none'
 
   useEffect(() => {
-    fetch(`http://localhost:3001/api/instances/${id}`)
+    fetch(`/api/instances/${id}`)
       .then(r => r.json())
       .then(data => {
         setSelectedChannels(data.channels || [])
@@ -56,7 +57,7 @@ export default function Instance({ id, title, onDelete }) {
       tgUrls,
       filter: selectedFilter
     }
-    fetch(`http://localhost:3001/api/instances/${id}`, {
+    fetch(`/api/instances/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -95,7 +96,7 @@ export default function Instance({ id, title, onDelete }) {
     if (es) return
     const qs = new URLSearchParams(params)
     qs.append('instanceId', id)
-    const eventSource = new EventSource(`http://localhost:3001${endpoint}?${qs.toString()}`)
+    const eventSource = new EventSource(`${endpoint}?${qs.toString()}`)
     setEs(eventSource)
     eventSource.onmessage = (e) => {
       const item = JSON.parse(e.data)
@@ -108,7 +109,7 @@ export default function Instance({ id, title, onDelete }) {
         const send = (score) => {
           const text = score != null ? `Score for this post is ${score}\n${base}` : base
           channelsRef.current.forEach(ch => {
-            fetch('http://localhost:3001/api/post', {
+            fetch('/api/post', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ channel: ch, text, media, instanceId: id })
@@ -117,7 +118,7 @@ export default function Instance({ id, title, onDelete }) {
         }
         const fid = filterRef.current
         if (fid && fid !== 'none') {
-          fetch(`http://localhost:3001/api/filters/${fid}/evaluate`, {
+          fetch(`/api/filters/${fid}/evaluate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: base })
@@ -164,7 +165,7 @@ export default function Instance({ id, title, onDelete }) {
     if (!window.confirm('Start posting to the selected Telegram channels?')) return
     setPosting(true)
     selectedChannels.forEach(ch => {
-      fetch('http://localhost:3001/api/post', {
+      fetch('/api/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channel: ch, text: 'Posting started', instanceId: id })
@@ -183,7 +184,7 @@ export default function Instance({ id, title, onDelete }) {
     }
     if (postingRef.current) {
       channelsRef.current.forEach(ch => {
-        fetch('http://localhost:3001/api/post', {
+        fetch('/api/post', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ channel: ch, text: 'Posting ended', instanceId: id })
@@ -208,7 +209,7 @@ export default function Instance({ id, title, onDelete }) {
   }, [])
 
   useEffect(() => {
-    const esLogs = new EventSource(`http://localhost:3001/api/logs?instanceId=${id}`)
+    const esLogs = new EventSource(`/api/logs?instanceId=${id}`)
     esLogs.onmessage = (e) => {
       const data = JSON.parse(e.data)
       console.log(`[${title}] ${data.message}`)
@@ -218,7 +219,7 @@ export default function Instance({ id, title, onDelete }) {
   }, [title, id])
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/channels')
+    fetch('/api/channels')
       .then(r => r.json())
       .then(data => {
         const arr = Object.entries(data).map(([cid, info]) => ({ id: cid, ...info }))
@@ -227,7 +228,7 @@ export default function Instance({ id, title, onDelete }) {
   }, [])
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/filters')
+    fetch('/api/filters')
       .then(r => r.json())
       .then(data => setFilters(Array.isArray(data) ? data : []))
       .catch(() => {})
