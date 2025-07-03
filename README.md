@@ -92,5 +92,6 @@ curl -F attachments=@notes.txt \
 
 You can quickly share the app while your laptop is running using [localtunnel](https://github.com/localtunnel/localtunnel).
 Run `npm run share` and keep the terminal open. The command builds the React client, starts the Node server and prints a temporary public URL.
-Open this URL on your phone to test the app.
+If the `lt` command is not recognized or prints unreadable text, make sure the project dependencies are installed with `npm run install-all`. You can also start the tunnel manually via `npx localtunnel --port 3001`.
+Open the printed URL on your phone to test the app.
 
