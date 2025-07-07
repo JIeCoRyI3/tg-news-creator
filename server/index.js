@@ -5,6 +5,7 @@ const axios = require('axios');
 const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const cors = require('cors');
+const session = require('express-session');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const cheerio = require('cheerio');
@@ -51,6 +52,9 @@ const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
 let approvers = [];
 const awaitingPosts = new Map();
 const activeApprovers = new Map(); // id -> username
+
+const USERS_FILE = path.join(__dirname, 'users.json');
+let users = [];
 
 function loadInstances() {
   try {
@@ -142,9 +146,32 @@ function saveApprovers() {
   }
 }
 
+function loadUsers() {
+  try {
+    const data = fs.readFileSync(USERS_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) users = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load users', e);
+  }
+  if (!users.length) {
+    users.push({ login: 'root', password: '1111' });
+    saveUsers();
+  }
+}
+
+function saveUsers() {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  } catch (e) {
+    console.error('Failed to save users', e);
+  }
+}
+
 loadTgSources();
 loadFilters();
 loadInstances();
+loadUsers();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
@@ -183,6 +210,7 @@ botEvents.on('start_approving', (msg) => {
 
 const app = express();
 app.use(express.json());
+app.use(session({ secret: 'tgnews-secret', resave: false, saveUninitialized: false }));
 const upload = multer({ dest: path.join(__dirname, 'uploads') });
 const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
 const axiosInstance = axios.create(proxyUrl ? {
@@ -196,6 +224,12 @@ const openai = new OpenAI({
   ...(proxyUrl ? { fetchOptions: { dispatcher: new ProxyAgent(proxyUrl) } } : {})
 });
 app.use(cors({ origin: '*' }));
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) return next();
+  if (['/api/login', '/api/logout', '/api/me'].includes(req.path)) return next();
+  if (req.session.user) return next();
+  res.status(401).json({ error: 'unauthorized' });
+});
 const PORT = process.env.PORT || 3001;
 
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
@@ -213,6 +247,45 @@ const swaggerSpec = swaggerJsdoc({
 });
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.post('/api/login', (req, res) => {
+  const { login, password } = req.body || {};
+  const user = users.find(u => u.login === login && u.password === password);
+  if (!user) return res.status(401).json({ error: 'invalid credentials' });
+  req.session.user = { login: user.login };
+  res.json({ ok: true });
+});
+
+app.get('/api/logout', (req, res) => {
+  req.session.destroy(() => {});
+  res.json({ ok: true });
+});
+
+app.get('/api/me', (req, res) => {
+  if (!req.session.user) return res.status(401).json({ error: 'unauthorized' });
+  res.json({ login: req.session.user.login });
+});
+
+app.get('/api/users', (req, res) => {
+  res.json(users.map(u => u.login));
+});
+
+app.post('/api/users', (req, res) => {
+  const { login, password } = req.body || {};
+  if (!login || !password) return res.status(400).json({ error: 'missing fields' });
+  if (users.find(u => u.login === login)) return res.status(400).json({ error: 'exists' });
+  users.push({ login, password });
+  saveUsers();
+  res.json({ ok: true });
+});
+
+app.delete('/api/users/:login', (req, res) => {
+  const idx = users.findIndex(u => u.login === req.params.login);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  users.splice(idx, 1);
+  saveUsers();
+  res.json({ ok: true });
+});
 
 
 async function scrapeTelegramPost(link) {

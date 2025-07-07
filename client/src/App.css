@@ -2,6 +2,11 @@
   font-family: 'Roboto', sans-serif;
   padding: 1rem;
 }
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .sources {
   border-collapse: collapse;
   margin-bottom: 1rem;

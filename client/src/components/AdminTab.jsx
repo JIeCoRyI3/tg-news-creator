@@ -5,7 +5,10 @@ import Modal from './ui/Modal.jsx'
 
 export default function AdminTab({ instanceId, onDelete }) {
   const [username, setUsername] = useState('')
-  const [users, setUsers] = useState([])
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [approvers, setApprovers] = useState([])
+  const [accounts, setAccounts] = useState([])
   const [queue, setQueue] = useState([])
   const [channelLink, setChannelLink] = useState('')
   const [channels, setChannels] = useState([])
@@ -14,7 +17,11 @@ export default function AdminTab({ instanceId, onDelete }) {
   const load = () => {
     fetch(`/api/instances/${instanceId}/approvers`)
       .then(r => r.json())
-      .then(data => setUsers(Array.isArray(data) ? data : []))
+      .then(data => setApprovers(Array.isArray(data) ? data : []))
+      .catch(() => {})
+    fetch('/api/users')
+      .then(r => r.json())
+      .then(data => setAccounts(Array.isArray(data) ? data : []))
       .catch(() => {})
     fetch('/api/awaiting')
       .then(r => r.json())
@@ -59,6 +66,24 @@ export default function AdminTab({ instanceId, onDelete }) {
     }).catch(() => {})
   }
 
+  const addUser = () => {
+    if (!login.trim() || !password.trim()) return
+    fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: login.trim(), password: password.trim() })
+    }).then(() => {
+      setLogin('')
+      setPassword('')
+      load()
+    }).catch(() => {})
+  }
+
+  const deleteUser = (name) => {
+    fetch(`/api/users/${name}`, { method: 'DELETE' })
+      .then(load).catch(() => {})
+  }
+
   const remove = (name) => {
     fetch(`/api/instances/${instanceId}/approvers?username=${name}`, {
       method: 'DELETE'
@@ -91,8 +116,19 @@ export default function AdminTab({ instanceId, onDelete }) {
         <Button onClick={add}>Add Approver</Button>
       </div>
       <ul>
-        {users.map(u => (
+        {approvers.map(u => (
           <li key={u}><span>{u}</span> <Button onClick={() => remove(u)}>x</Button></li>
+        ))}
+      </ul>
+      <h4>Users</h4>
+      <div className="tg-input">
+        <input value={login} onChange={e => setLogin(e.target.value)} placeholder="login" />
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="password" />
+        <Button onClick={() => addUser()}>Add User</Button>
+      </div>
+      <ul>
+        {accounts.map(u => (
+          <li key={u}><span>{u}</span> <Button onClick={() => deleteUser(u)}>x</Button></li>
         ))}
       </ul>
       <h4>Posting Channels</h4>
