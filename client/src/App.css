@@ -7,6 +7,13 @@
   justify-content: space-between;
   align-items: center;
 }
+.nav {
+  display: flex;
+  gap: 0.5rem;
+}
+.nav .active {
+  font-weight: bold;
+}
 .sources {
   border-collapse: collapse;
   margin-bottom: 1rem;
