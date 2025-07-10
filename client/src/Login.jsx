@@ -16,7 +16,10 @@ export default function Login({ onLogin }) {
         if (!r.ok) throw new Error('fail')
         return r.json()
       })
-      .then(() => onLogin && onLogin())
+      .then(() => {
+        localStorage.setItem('access-token', '1')
+        onLogin && onLogin()
+      })
       .catch(() => window.alert('Invalid credentials'))
   }
   return (

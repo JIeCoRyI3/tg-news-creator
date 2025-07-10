@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Instance from './Instance.jsx'
+import Users from './Users.jsx'
 import Button from './components/ui/Button.jsx'
 import Login from './Login.jsx'
 import './App.css'
@@ -8,6 +9,7 @@ export default function App() {
   const [title, setTitle] = useState('')
   const [instances, setInstances] = useState([])
   const [user, setUser] = useState(null)
+  const [page, setPage] = useState('dashboard')
 
   const loadUser = () => {
     fetch('/api/me')
@@ -16,7 +18,9 @@ export default function App() {
       .catch(() => setUser(null))
   }
 
-  useEffect(loadUser, [])
+  useEffect(() => {
+    if (localStorage.getItem('access-token')) loadUser()
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -47,27 +51,39 @@ export default function App() {
   if (!user) return <Login onLogin={loadUser} />
 
   const logout = () => {
-    fetch('/api/logout').finally(() => setUser(null))
+    fetch('/api/logout').finally(() => {
+      localStorage.removeItem('access-token')
+      setUser(null)
+    })
   }
 
   return (
     <div className="App">
       <div className="header">
-        <h2>Instances</h2>
+        <div className="nav">
+          <Button onClick={() => setPage('dashboard')} className={page === 'dashboard' ? 'active' : ''}>Dashboard</Button>
+          <Button onClick={() => setPage('users')} className={page === 'users' ? 'active' : ''}>Users</Button>
+        </div>
         <Button onClick={logout}>Logout</Button>
       </div>
-      <div className="tg-input">
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Instance title" />
-        <Button onClick={add}>Add new instance</Button>
-      </div>
-      {instances.map(inst => (
-        <Instance
-          key={inst.id}
-          id={inst.id}
-          title={inst.title}
-          onDelete={() => removeInstance(inst.id)}
-        />
-      ))}
+      {page === 'dashboard' ? (
+        <>
+          <div className="tg-input">
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Instance title" />
+            <Button onClick={add}>Add new instance</Button>
+          </div>
+          {instances.map(inst => (
+            <Instance
+              key={inst.id}
+              id={inst.id}
+              title={inst.title}
+              onDelete={() => removeInstance(inst.id)}
+            />
+          ))}
+        </>
+      ) : (
+        <Users />
+      )}
     </div>
   )
 }
