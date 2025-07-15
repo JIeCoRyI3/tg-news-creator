@@ -5,7 +5,7 @@ const axios = require('axios');
 const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const cors = require('cors');
-const session = require('express-session');
+const jwt = require('jsonwebtoken');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const cheerio = require('cheerio');
@@ -28,6 +28,7 @@ const {
 } = require('../bot');
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
+const JWT_SECRET = process.env.JWT_SECRET || 'tgnews-secret';
 
 const INSTANCES_FILE = path.join(__dirname, 'instances.json');
 let instances = [];
@@ -210,7 +211,6 @@ botEvents.on('start_approving', (msg) => {
 
 const app = express();
 app.use(express.json());
-app.use(session({ secret: 'tgnews-secret', resave: false, saveUninitialized: false }));
 const upload = multer({ dest: path.join(__dirname, 'uploads') });
 const proxyUrl = process.env.https_proxy || process.env.http_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
 const axiosInstance = axios.create(proxyUrl ? {
@@ -226,9 +226,16 @@ const openai = new OpenAI({
 app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) return next();
-  if (['/api/login', '/api/logout', '/api/me'].includes(req.path)) return next();
-  if (req.session.user) return next();
-  res.status(401).json({ error: 'unauthorized' });
+  if (req.path === '/api/login') return next();
+  const auth = req.headers.authorization || '';
+  if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const user = jwt.verify(auth.slice(7), JWT_SECRET);
+    req.user = user;
+    next();
+  } catch (e) {
+    res.status(401).json({ error: 'invalid token' });
+  }
 });
 const PORT = process.env.PORT || 3001;
 
@@ -252,18 +259,17 @@ app.post('/api/login', (req, res) => {
   const { login, password } = req.body || {};
   const user = users.find(u => u.login === login && u.password === password);
   if (!user) return res.status(401).json({ error: 'invalid credentials' });
-  req.session.user = { login: user.login };
-  res.json({ ok: true });
+  const token = jwt.sign({ login: user.login }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ token });
 });
 
 app.get('/api/logout', (req, res) => {
-  req.session.destroy(() => {});
   res.json({ ok: true });
 });
 
 app.get('/api/me', (req, res) => {
-  if (!req.session.user) return res.status(401).json({ error: 'unauthorized' });
-  res.json({ login: req.session.user.login });
+  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+  res.json({ login: req.user.login });
 });
 
 app.get('/api/users', (req, res) => {

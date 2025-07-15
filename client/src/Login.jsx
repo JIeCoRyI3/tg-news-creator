@@ -16,8 +16,8 @@ export default function Login({ onLogin }) {
         if (!r.ok) throw new Error('fail')
         return r.json()
       })
-      .then(() => {
-        localStorage.setItem('access-token', '1')
+      .then(data => {
+        localStorage.setItem('access-token', data.token)
         onLogin && onLogin()
       })
       .catch(() => window.alert('Invalid credentials'))

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
+import apiFetch from '../api.js'
 
 export default function AdminTab({ instanceId, onDelete }) {
   const [username, setUsername] = useState('')
@@ -12,15 +13,15 @@ export default function AdminTab({ instanceId, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const load = () => {
-    fetch(`/api/instances/${instanceId}/approvers`)
+    apiFetch(`/api/instances/${instanceId}/approvers`)
       .then(r => r.json())
       .then(data => setApprovers(Array.isArray(data) ? data : []))
       .catch(() => {})
-    fetch('/api/awaiting')
+    apiFetch('/api/awaiting')
       .then(r => r.json())
       .then(data => setQueue(Array.isArray(data) ? data : []))
       .catch(() => {})
-    fetch(`/api/instances/${instanceId}/post-channels`)
+    apiFetch(`/api/instances/${instanceId}/post-channels`)
       .then(r => r.json())
       .then(data => {
         const arr = Object.entries(data).map(([cid, info]) => ({ id: cid, ...info }))
@@ -37,7 +38,7 @@ export default function AdminTab({ instanceId, onDelete }) {
 
   const add = () => {
     if (!username.trim()) return
-    fetch(`/api/instances/${instanceId}/approvers`, {
+    apiFetch(`/api/instances/${instanceId}/approvers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username.trim() })
@@ -49,7 +50,7 @@ export default function AdminTab({ instanceId, onDelete }) {
 
   const addPostChannel = () => {
     if (!channelLink.trim()) return
-    fetch(`/api/instances/${instanceId}/post-channels`, {
+    apiFetch(`/api/instances/${instanceId}/post-channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ link: channelLink.trim() })
@@ -61,23 +62,23 @@ export default function AdminTab({ instanceId, onDelete }) {
 
 
   const remove = (name) => {
-    fetch(`/api/instances/${instanceId}/approvers?username=${name}`, {
+    apiFetch(`/api/instances/${instanceId}/approvers?username=${name}`, {
       method: 'DELETE'
     }).then(load).catch(() => {})
   }
 
   const approve = (id) => {
-    fetch(`/api/awaiting/${id}/approve`, { method: 'POST' })
+    apiFetch(`/api/awaiting/${id}/approve`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
   const cancel = (id) => {
-    fetch(`/api/awaiting/${id}/cancel`, { method: 'POST' })
+    apiFetch(`/api/awaiting/${id}/cancel`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
   const doDelete = () => {
-    fetch(`/api/instances/${instanceId}`, { method: 'DELETE' })
+    apiFetch(`/api/instances/${instanceId}`, { method: 'DELETE' })
       .then(() => {
         setConfirmDelete(false)
         if (onDelete) onDelete()

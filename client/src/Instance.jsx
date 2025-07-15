@@ -9,6 +9,7 @@ import FilterSelect from './components/FilterSelect.jsx'
 import FiltersTab from './components/FiltersTab.jsx'
 import AdminTab from './components/AdminTab.jsx'
 import Button from './components/ui/Button.jsx'
+import apiFetch from './api.js'
 
 import './App.css'
 
@@ -35,7 +36,7 @@ export default function Instance({ id, title, onDelete }) {
   const controlsDisabled = !selectedChannels.length || selectedFilter === 'none'
 
   useEffect(() => {
-    fetch(`/api/instances/${id}`)
+    apiFetch(`/api/instances/${id}`)
       .then(r => r.json())
       .then(data => {
         setSelectedChannels(data.channels || [])
@@ -57,7 +58,7 @@ export default function Instance({ id, title, onDelete }) {
       tgUrls,
       filter: selectedFilter
     }
-    fetch(`/api/instances/${id}`, {
+    apiFetch(`/api/instances/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -109,7 +110,7 @@ export default function Instance({ id, title, onDelete }) {
         const send = (score) => {
           const text = score != null ? `Score for this post is ${score}\n${base}` : base
           channelsRef.current.forEach(ch => {
-            fetch('/api/post', {
+            apiFetch('/api/post', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ channel: ch, text, media, instanceId: id })
@@ -118,7 +119,7 @@ export default function Instance({ id, title, onDelete }) {
         }
         const fid = filterRef.current
         if (fid && fid !== 'none') {
-          fetch(`/api/filters/${fid}/evaluate`, {
+          apiFetch(`/api/filters/${fid}/evaluate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: base })
@@ -165,7 +166,7 @@ export default function Instance({ id, title, onDelete }) {
     if (!window.confirm('Start posting to the selected Telegram channels?')) return
     setPosting(true)
     selectedChannels.forEach(ch => {
-      fetch('/api/post', {
+      apiFetch('/api/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channel: ch, text: 'Posting started', instanceId: id })
@@ -184,7 +185,7 @@ export default function Instance({ id, title, onDelete }) {
     }
     if (postingRef.current) {
       channelsRef.current.forEach(ch => {
-        fetch('/api/post', {
+        apiFetch('/api/post', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ channel: ch, text: 'Posting ended', instanceId: id })
@@ -219,7 +220,7 @@ export default function Instance({ id, title, onDelete }) {
   }, [title, id])
 
   useEffect(() => {
-    fetch('/api/channels')
+    apiFetch('/api/channels')
       .then(r => r.json())
       .then(data => {
         const arr = Object.entries(data).map(([cid, info]) => ({ id: cid, ...info }))
@@ -228,7 +229,7 @@ export default function Instance({ id, title, onDelete }) {
   }, [])
 
   useEffect(() => {
-    fetch('/api/filters')
+    apiFetch('/api/filters')
       .then(r => r.json())
       .then(data => setFilters(Array.isArray(data) ? data : []))
       .catch(() => {})
