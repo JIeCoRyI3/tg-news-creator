@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Button from './components/ui/Button.jsx'
+import apiFetch from './api.js'
 
 export default function Users() {
   const [login, setLogin] = useState('')
@@ -7,7 +8,7 @@ export default function Users() {
   const [accounts, setAccounts] = useState([])
 
   const load = () => {
-    fetch('/api/users')
+    apiFetch('/api/users')
       .then(r => r.json())
       .then(data => setAccounts(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -17,7 +18,7 @@ export default function Users() {
 
   const addUser = () => {
     if (!login.trim() || !password.trim()) return
-    fetch('/api/users', {
+    apiFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login: login.trim(), password: password.trim() })
@@ -29,7 +30,7 @@ export default function Users() {
   }
 
   const deleteUser = (name) => {
-    fetch(`/api/users/${name}`, { method: 'DELETE' })
+    apiFetch(`/api/users/${name}`, { method: 'DELETE' })
       .then(load).catch(() => {})
   }
 

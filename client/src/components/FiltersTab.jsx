@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
+import apiFetch from '../api.js'
 
 export default function FiltersTab({ filters, setFilters }) {
   const [showForm, setShowForm] = useState(false)
@@ -15,7 +16,7 @@ export default function FiltersTab({ filters, setFilters }) {
   const [openFilter, setOpenFilter] = useState(null)
 
   useEffect(() => {
-    fetch('/api/models')
+    apiFetch('/api/models')
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data) && data.length) {
@@ -33,7 +34,7 @@ export default function FiltersTab({ filters, setFilters }) {
     fd.append('instructions', instructions)
     fd.append('min_score', minScore)
     if (vectorId) fd.append('vector_store_id', vectorId)
-    fetch('/api/filters', {
+    apiFetch('/api/filters', {
       method: 'POST',
       body: fd
     })
@@ -58,7 +59,7 @@ export default function FiltersTab({ filters, setFilters }) {
     }
     const fd = new FormData()
     selected.forEach(f => fd.append('attachments', f))
-    fetch('/api/vector-stores', {
+    apiFetch('/api/vector-stores', {
       method: 'POST',
       body: fd
     })
@@ -109,7 +110,7 @@ export default function FiltersTab({ filters, setFilters }) {
         onClose={() => setOpenFilter(null)}
         actions={openFilter && (
           <Button onClick={() => {
-            fetch(`/api/filters/${openFilter.id}`, {
+            apiFetch(`/api/filters/${openFilter.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ min_score: openFilter.min_score })

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import apiFetch from './api.js'
 import Instance from './Instance.jsx'
 import Users from './Users.jsx'
 import Button from './components/ui/Button.jsx'
@@ -12,7 +13,7 @@ export default function App() {
   const [page, setPage] = useState('dashboard')
 
   const loadUser = () => {
-    fetch('/api/me')
+    apiFetch('/api/me')
       .then(r => (r.ok ? r.json() : null))
       .then(data => setUser(data))
       .catch(() => setUser(null))
@@ -24,7 +25,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return
-    fetch('/api/instances')
+    apiFetch('/api/instances')
       .then(r => r.json())
       .then(data => setInstances(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -33,7 +34,7 @@ export default function App() {
   const add = () => {
     const t = title.trim()
     if (!t) return
-    fetch('/api/instances', {
+    apiFetch('/api/instances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: t })
@@ -51,7 +52,7 @@ export default function App() {
   if (!user) return <Login onLogin={loadUser} />
 
   const logout = () => {
-    fetch('/api/logout').finally(() => {
+    apiFetch('/api/logout').finally(() => {
       localStorage.removeItem('access-token')
       setUser(null)
     })
