@@ -13,15 +13,26 @@ export default function App() {
   const [page, setPage] = useState('dashboard')
 
   const loadUser = () => {
+    console.log('Fetching /api/me')
     apiFetch('/api/me')
       .then(r => (r.ok ? r.json() : null))
-      .then(data => setUser(data))
-      .catch(() => setUser(null))
+      .then(data => {
+        console.log('Current user', data)
+        setUser(data)
+      })
+      .catch(err => {
+        console.log('Failed loading user', err)
+        setUser(null)
+      })
   }
 
   useEffect(() => {
     if (localStorage.getItem('access-token')) loadUser()
   }, [])
+
+  useEffect(() => {
+    console.log('User state changed', user)
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -49,12 +60,17 @@ export default function App() {
     setInstances(prev => prev.filter(i => i.id !== instId))
   }
 
-  if (!user) return <Login onLogin={loadUser} />
+  if (!user) {
+    console.log('Displaying login page')
+    return <Login onLogin={loadUser} />
+  }
 
   const logout = () => {
+    console.log('Logging out')
     apiFetch('/api/logout').finally(() => {
       localStorage.removeItem('access-token')
       setUser(null)
+      console.log('Logged out')
     })
   }
 

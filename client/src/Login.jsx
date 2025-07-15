@@ -7,6 +7,7 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState('')
   const submit = (e) => {
     e.preventDefault()
+    console.log('Logging in as', login)
     fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -18,9 +19,13 @@ export default function Login({ onLogin }) {
       })
       .then(data => {
         localStorage.setItem('access-token', data.token)
+        console.log('Login success')
         onLogin && onLogin()
       })
-      .catch(() => window.alert('Invalid credentials'))
+      .catch(err => {
+        console.log('Login failed', err)
+        window.alert('Invalid credentials')
+      })
   }
   return (
     <form className="login-form" onSubmit={submit}>

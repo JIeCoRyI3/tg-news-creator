@@ -13,19 +13,50 @@ const { marked } = require('marked');
 const { telegram_scraper } = require('telegram-scraper');
 const fs = require('fs');
 const multer = require('multer');
-const {
-  listChannels,
-  listInstanceChannels,
-  addChannel,
-  sendMessage,
-  sendPhoto,
-  sendVideo,
-  botEvents,
-  resolveLink,
-  sendApprovalRequest,
-  answerCallback,
-  deleteMessage
-} = require('../bot');
+let listChannels,
+    listInstanceChannels,
+    addChannel,
+    sendMessage,
+    sendPhoto,
+    sendVideo,
+    botEvents,
+    resolveLink,
+    sendApprovalRequest,
+    answerCallback,
+    deleteMessage;
+
+try {
+  ({
+    listChannels,
+    listInstanceChannels,
+    addChannel,
+    sendMessage,
+    sendPhoto,
+    sendVideo,
+    botEvents,
+    resolveLink,
+    sendApprovalRequest,
+    answerCallback,
+    deleteMessage
+  } = require('../bot'));
+} catch (e) {
+  console.log('Bot disabled:', e.message);
+  const { EventEmitter } = require('events');
+  botEvents = new EventEmitter();
+  const stub = async () => {
+    throw new Error('bot disabled');
+  };
+  listChannels = () => ({ });
+  listInstanceChannels = () => ({ });
+  addChannel = stub;
+  sendMessage = stub;
+  sendPhoto = stub;
+  sendVideo = stub;
+  resolveLink = stub;
+  sendApprovalRequest = stub;
+  answerCallback = stub;
+  deleteMessage = stub;
+}
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 const JWT_SECRET = process.env.JWT_SECRET || 'tgnews-secret';
@@ -220,7 +251,7 @@ const axiosInstance = axios.create(proxyUrl ? {
   maxRedirects: 10
 } : { maxRedirects: 10 });
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'none',
   ...(proxyUrl ? { fetchOptions: { dispatcher: new ProxyAgent(proxyUrl) } } : {})
 });
 app.use(cors({ origin: '*' }));
@@ -228,12 +259,17 @@ app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) return next();
   if (req.path === '/api/login') return next();
   const auth = req.headers.authorization || '';
-  if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'unauthorized' });
+  if (!auth.startsWith('Bearer ')) {
+    log('Missing auth token');
+    return res.status(401).json({ error: 'unauthorized' });
+  }
   try {
     const user = jwt.verify(auth.slice(7), JWT_SECRET);
     req.user = user;
+    log(`Authenticated ${user.login}`);
     next();
   } catch (e) {
+    log(`Invalid token: ${e.message}`);
     res.status(401).json({ error: 'invalid token' });
   }
 });
@@ -257,18 +293,25 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.post('/api/login', (req, res) => {
   const { login, password } = req.body || {};
+  log(`Login attempt for ${login}`);
   const user = users.find(u => u.login === login && u.password === password);
-  if (!user) return res.status(401).json({ error: 'invalid credentials' });
+  if (!user) {
+    log(`Login failed for ${login}`);
+    return res.status(401).json({ error: 'invalid credentials' });
+  }
+  log(`Login success for ${login}`);
   const token = jwt.sign({ login: user.login }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token });
 });
 
 app.get('/api/logout', (req, res) => {
+  log(`Logout for ${req.user ? req.user.login : 'unknown'}`);
   res.json({ ok: true });
 });
 
 app.get('/api/me', (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+  log(`/api/me for ${req.user.login}`);
   res.json({ login: req.user.login });
 });
 
