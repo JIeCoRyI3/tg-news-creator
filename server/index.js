@@ -258,13 +258,19 @@ app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) return next();
   if (req.path === '/api/login') return next();
+  let token;
   const auth = req.headers.authorization || '';
-  if (!auth.startsWith('Bearer ')) {
+  if (auth.startsWith('Bearer ')) {
+    token = auth.slice(7);
+  } else if (typeof req.query.token === 'string') {
+    token = req.query.token;
+  }
+  if (!token) {
     log('Missing auth token');
     return res.status(401).json({ error: 'unauthorized' });
   }
   try {
-    const user = jwt.verify(auth.slice(7), JWT_SECRET);
+    const user = jwt.verify(token, JWT_SECRET);
     req.user = user;
     log(`Authenticated ${user.login}`);
     next();
