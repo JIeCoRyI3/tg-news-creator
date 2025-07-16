@@ -97,6 +97,8 @@ export default function Instance({ id, title, onDelete }) {
     if (es) return
     const qs = new URLSearchParams(params)
     qs.append('instanceId', id)
+    const token = localStorage.getItem('access-token')
+    if (token) qs.append('token', token)
     const eventSource = new EventSource(`${endpoint}?${qs.toString()}`)
     setEs(eventSource)
     eventSource.onmessage = (e) => {
@@ -210,7 +212,8 @@ export default function Instance({ id, title, onDelete }) {
   }, [])
 
   useEffect(() => {
-    const esLogs = new EventSource(`/api/logs?instanceId=${id}`)
+    const token = localStorage.getItem('access-token')
+    const esLogs = new EventSource(`/api/logs?instanceId=${id}${token ? `&token=${token}` : ''}`)
     esLogs.onmessage = (e) => {
       const data = JSON.parse(e.data)
       console.log(`[${title}] ${data.message}`)
