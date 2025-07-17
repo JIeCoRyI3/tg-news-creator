@@ -800,7 +800,7 @@ app.get('/api/models', async (req, res) => {
     const resp = await openai.models.list();
     const models = resp.data
       .map(m => m.id)
-      .filter(id => id.startsWith('gpt-'))
+      .filter(id => id.startsWith('gpt-') || id.startsWith('o'))
       .sort();
     res.json(models);
   } catch (e) {
