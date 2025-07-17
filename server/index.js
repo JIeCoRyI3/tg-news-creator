@@ -60,6 +60,8 @@ try {
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
 const JWT_SECRET = process.env.JWT_SECRET || 'tgnews-secret';
+const DEFAULT_IMAGE_MODEL = 'dall-e-3';
+const DEFAULT_IMAGE_PROMPT = 'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.';
 
 const INSTANCES_FILE = path.join(__dirname, 'instances.json');
 let instances = [];
@@ -95,7 +97,13 @@ function loadInstances() {
   try {
     const data = fs.readFileSync(INSTANCES_FILE, 'utf8');
     const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) instances = parsed;
+    if (Array.isArray(parsed)) {
+      instances = parsed.map(inst => ({
+        imageModel: DEFAULT_IMAGE_MODEL,
+        imagePrompt: DEFAULT_IMAGE_PROMPT,
+        ...inst
+      }));
+    }
   } catch (e) {
     if (e.code !== 'ENOENT') console.error('Failed to load instances', e);
   }
@@ -253,13 +261,15 @@ botEvents.on('callback', async (query) => {
       sendMessage(query.from.id, 'Generating image...', {}, post.instanceId).catch(() => {});
       try {
         log(`Generating image for post ${id}`, post.instanceId);
-        const prompt = `Create an image for a Telegram post based on the following text: ${post.text}. The image should have a stylish, minimalistic design with modern, fashionable gradients.`;
-        const img = await openai.images.generate({ model: 'dall-e-3', prompt });
+        const inst = instances.find(i => i.id === post.instanceId);
+        const model = inst?.imageModel || DEFAULT_IMAGE_MODEL;
+        const basePrompt = inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
+        const prompt = basePrompt.split('{postText}').join(post.text);
+        const img = await openai.images.generate({ model, prompt });
         const url = img.data?.[0]?.url;
         log(`Generated image for post ${id}`, post.instanceId);
         post.media = url;
         awaitingPosts.set(id, post);
-        const inst = instances.find(i => i.id === post.instanceId);
         const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
         for (const [uid, name] of activeApprovers.entries()) {
           if (approverList.includes(name)) {
@@ -545,13 +555,25 @@ app.get('/api/channels', (req, res) => {
 });
 
 app.get('/api/instances', (req, res) => {
-  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', author = 'none', mode = 'json', tab = 'tg' }) => ({ id, title, tgUrls, channels, filter, author, mode, tab })));
+  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', author = 'none', mode = 'json', tab = 'tg', imageModel = DEFAULT_IMAGE_MODEL, imagePrompt = DEFAULT_IMAGE_PROMPT }) => ({ id, title, tgUrls, channels, filter, author, mode, tab, imageModel, imagePrompt })));
 });
 
 app.post('/api/instances', (req, res) => {
   const { title } = req.body;
   if (!title) return res.status(400).json({ error: 'title required' });
-  const inst = { id: Date.now().toString(16) + Math.random().toString(16).slice(2), title, tgUrls: [], channels: [], filter: 'none', author: 'none', mode: 'json', tab: 'tg', approvers: [] };
+  const inst = {
+    id: Date.now().toString(16) + Math.random().toString(16).slice(2),
+    title,
+    tgUrls: [],
+    channels: [],
+    filter: 'none',
+    author: 'none',
+    mode: 'json',
+    tab: 'tg',
+    approvers: [],
+    imageModel: DEFAULT_IMAGE_MODEL,
+    imagePrompt: DEFAULT_IMAGE_PROMPT
+  };
   instances.push(inst);
   saveInstances();
   res.json(inst);
@@ -653,16 +675,15 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
   try {
     log(`Generating image for post ${id}`, post.instanceId);
     const body = req.body || {};
-    const model = body.model || 'dall-e-3';
-    const basePrompt = body.prompt ||
-      'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.';
+    const inst = instances.find(i => i.id === post.instanceId);
+    const model = body.model || inst?.imageModel || DEFAULT_IMAGE_MODEL;
+    const basePrompt = body.prompt || inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
     const prompt = basePrompt.split('{postText}').join(post.text);
     const img = await openai.images.generate({ model, prompt });
     const url = img.data?.[0]?.url;
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;
     awaitingPosts.set(id, post);
-    const inst = instances.find(i => i.id === post.instanceId);
     const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
     for (const [uid, name] of activeApprovers.entries()) {
       if (approverList.includes(name)) {

@@ -4,17 +4,13 @@ import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
-export default function AdminTab({ instanceId, onDelete }) {
+export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt }) {
   const [username, setUsername] = useState('')
   const [approvers, setApprovers] = useState([])
   const [queue, setQueue] = useState([])
   const [channelLink, setChannelLink] = useState('')
   const [channels, setChannels] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [showImageModal, setShowImageModal] = useState(false)
-  const [imagePrompt, setImagePrompt] = useState('Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
-  const [imageModel, setImageModel] = useState('dall-e-3')
-  const [imagePostId, setImagePostId] = useState(null)
 
   const load = () => {
     apiFetch(`/api/instances/${instanceId}/approvers`)
@@ -78,23 +74,13 @@ export default function AdminTab({ instanceId, onDelete }) {
   }
 
   const approveImage = (id) => {
-    setImagePostId(id)
-    setShowImageModal(true)
-  }
-
-  const generateImage = () => {
-    if (!imagePostId) return
     const body = { model: imageModel, prompt: imagePrompt }
-    apiFetch(`/api/awaiting/${imagePostId}/image`, {
+    apiFetch(`/api/awaiting/${id}/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     })
-      .then(() => {
-        setShowImageModal(false)
-        setImagePostId(null)
-        load()
-      })
+      .then(load)
       .catch(() => {})
   }
 
@@ -146,6 +132,21 @@ export default function AdminTab({ instanceId, onDelete }) {
           </li>
         ))}
       </ul>
+      <h4>Image Generation</h4>
+      <div className="tg-input">
+        <input
+          value={imageModel}
+          onChange={e => setImageModel(e.target.value)}
+          placeholder="Model"
+        />
+      </div>
+      <div className="tg-input">
+        <textarea
+          value={imagePrompt}
+          onChange={e => setImagePrompt(e.target.value)}
+          rows="4"
+        />
+      </div>
       <Button onClick={() => setConfirmDelete(true)}>Delete instance</Button>
       <Modal
         open={confirmDelete}
@@ -154,31 +155,15 @@ export default function AdminTab({ instanceId, onDelete }) {
       >
         Are you sure you want to delete this instance?
       </Modal>
-      <Modal
-        open={showImageModal}
-        onClose={() => setShowImageModal(false)}
-        actions={<Button onClick={generateImage}>Generate</Button>}
-      >
-        <div className="tg-input">
-          <input
-            value={imageModel}
-            onChange={e => setImageModel(e.target.value)}
-            placeholder="Model"
-          />
-        </div>
-        <div className="tg-input">
-          <textarea
-            value={imagePrompt}
-            onChange={e => setImagePrompt(e.target.value)}
-            rows="4"
-          />
-        </div>
-      </Modal>
     </div>
   )
 }
 
 AdminTab.propTypes = {
   instanceId: PropTypes.string.isRequired,
-  onDelete: PropTypes.func
+  onDelete: PropTypes.func,
+  imageModel: PropTypes.string.isRequired,
+  setImageModel: PropTypes.func.isRequired,
+  imagePrompt: PropTypes.string.isRequired,
+  setImagePrompt: PropTypes.func.isRequired
 }

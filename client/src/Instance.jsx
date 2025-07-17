@@ -30,6 +30,8 @@ export default function Instance({ id, title, onDelete }) {
   const [selectedFilter, setSelectedFilter] = useState('none')
   const [authors, setAuthors] = useState([])
   const [selectedAuthor, setSelectedAuthor] = useState('none')
+  const [imageModel, setImageModel] = useState('dall-e-3')
+  const [imagePrompt, setImagePrompt] = useState('Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
   const [loaded, setLoaded] = useState(false)
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
@@ -51,6 +53,8 @@ export default function Instance({ id, title, onDelete }) {
         setTgUrls(data.tgUrls || [])
         setSelectedFilter(data.filter || 'none')
         setSelectedAuthor(data.author || 'none')
+        setImageModel(data.imageModel || 'dall-e-3')
+        setImagePrompt(data.imagePrompt || 'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
@@ -64,14 +68,16 @@ export default function Instance({ id, title, onDelete }) {
       tab,
       tgUrls,
       filter: selectedFilter,
-      author: selectedAuthor
+      author: selectedAuthor,
+      imageModel,
+      imagePrompt
     }
     apiFetch(`/api/instances/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).catch(() => {})
-  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor])
+  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor, imageModel, imagePrompt])
 
   const addTgUrl = (url) => {
     setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
@@ -303,7 +309,14 @@ export default function Instance({ id, title, onDelete }) {
           <AuthorSelect authors={authors} selected={selectedAuthor} setSelected={setSelectedAuthor} />
         </>
       ) : tab === 'admin' ? (
-        <AdminTab instanceId={id} onDelete={() => onDelete && onDelete(id)} />
+        <AdminTab
+          instanceId={id}
+          onDelete={() => onDelete && onDelete(id)}
+          imageModel={imageModel}
+          setImageModel={setImageModel}
+          imagePrompt={imagePrompt}
+          setImagePrompt={setImagePrompt}
+        />
       ) : tab === 'filters' ? (
         <FiltersTab filters={filters} setFilters={setFilters} />
       ) : (
