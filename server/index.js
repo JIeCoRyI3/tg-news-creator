@@ -243,13 +243,16 @@ botEvents.on('callback', async (query) => {
         await answerCallback(query.id, 'Failed to post');
       }
     }
-  } else if (action === 'approve_text') {
+  } else if (action === 'approve_image') {
     const post = awaitingPosts.get(id);
     if (post) {
       awaitingPosts.delete(id);
       try {
-        await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
-        await answerCallback(query.id, 'Approved without image');
+        const prompt = `Create an image for a Telegram post based on the following text: ${post.text}. The image should have a stylish, minimalistic design with modern, fashionable gradients.`;
+        const img = await openai.images.generate({ model: 'dall-e-3', prompt });
+        const url = img.data?.[0]?.url;
+        await postToChannel({ channel: post.channel, text: post.text, media: url, instanceId: post.instanceId });
+        await answerCallback(query.id, 'Approved with image');
       } catch (e) {
         await answerCallback(query.id, 'Failed to post');
       }
@@ -628,16 +631,19 @@ app.post('/api/awaiting/:id/approve', async (req, res) => {
   }
 });
 
-app.post('/api/awaiting/:id/text', async (req, res) => {
+app.post('/api/awaiting/:id/image', async (req, res) => {
   const { id } = req.params;
   const post = awaitingPosts.get(id);
   if (!post) return res.status(404).json({ error: 'not found' });
   awaitingPosts.delete(id);
   try {
-    await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
+    const prompt = `Create an image for a Telegram post based on the following text: ${post.text}. The image should have a stylish, minimalistic design with modern, fashionable gradients.`;
+    const img = await openai.images.generate({ model: 'dall-e-3', prompt });
+    const url = img.data?.[0]?.url;
+    await postToChannel({ channel: post.channel, text: post.text, media: url, instanceId: post.instanceId });
     res.json({ ok: true });
   } catch (e) {
-    log(`Failed posting awaiting text ${id}: ${e.message}`, post.instanceId);
+    log(`Failed posting awaiting image ${id}: ${e.message}`, post.instanceId);
     res.status(500).json({ error: e.message });
   }
 });

@@ -186,7 +186,7 @@ async function sendVideo(channel, url, caption, options = {}, instanceId) {
 async function sendApprovalRequest(userId, post) {
   const keyboard = { inline_keyboard: [[
     { text: 'Approve', callback_data: `approve:${post.id}` },
-    { text: 'Post without image', callback_data: `approve_text:${post.id}` },
+    { text: 'Approve with new image', callback_data: `approve_image:${post.id}` },
     { text: 'Cancel', callback_data: `cancel:${post.id}` }
   ]] };
   const text = `Approve post to ${post.channel}?\n${post.text}`;

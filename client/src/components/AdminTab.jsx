@@ -73,8 +73,8 @@ export default function AdminTab({ instanceId, onDelete }) {
       .then(load).catch(() => {})
   }
 
-  const postText = (id) => {
-    apiFetch(`/api/awaiting/${id}/text`, { method: 'POST' })
+  const approveImage = (id) => {
+    apiFetch(`/api/awaiting/${id}/image`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
@@ -121,7 +121,7 @@ export default function AdminTab({ instanceId, onDelete }) {
             <div>{p.text?.slice(0, 100)}</div>
             {p.media && <img src={p.media} alt="" />}
             <Button onClick={() => approve(p.id)}>Approve</Button>
-            <Button onClick={() => postText(p.id)}>Post without image</Button>
+            <Button onClick={() => approveImage(p.id)}>Approve with new image</Button>
             <Button onClick={() => cancel(p.id)}>Cancel</Button>
           </li>
         ))}
