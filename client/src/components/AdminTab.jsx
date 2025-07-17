@@ -30,6 +30,7 @@ export default function AdminTab({ instanceId, onDelete }) {
       .catch(() => {})
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load()
     const id = setInterval(load, 3000)

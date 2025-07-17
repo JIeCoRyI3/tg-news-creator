@@ -6,7 +6,9 @@ import Controls from './components/Controls.jsx'
 import NewsList from './components/NewsList.jsx'
 import TGSources from './components/TGSources.jsx'
 import FilterSelect from './components/FilterSelect.jsx'
+import AuthorSelect from './components/AuthorSelect.jsx'
 import FiltersTab from './components/FiltersTab.jsx'
+import AuthorsTab from './components/AuthorsTab.jsx'
 import AdminTab from './components/AdminTab.jsx'
 import Button from './components/ui/Button.jsx'
 import apiFetch from './api.js'
@@ -26,14 +28,18 @@ export default function Instance({ id, title, onDelete }) {
   const [tgUrls, setTgUrls] = useState([])
   const [filters, setFilters] = useState([])
   const [selectedFilter, setSelectedFilter] = useState('none')
+  const [authors, setAuthors] = useState([])
+  const [selectedAuthor, setSelectedAuthor] = useState('none')
   const [loaded, setLoaded] = useState(false)
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
   const tabRef = useRef(tab)
   const filterRef = useRef(selectedFilter)
   const filtersRef = useRef(filters)
+  const authorRef = useRef(selectedAuthor)
+  const authorsRef = useRef(authors)
   const [, forceTick] = useState(0)
-  const controlsDisabled = !selectedChannels.length || selectedFilter === 'none'
+  const controlsDisabled = !selectedChannels.length || selectedFilter === 'none' || selectedAuthor === 'none'
 
   useEffect(() => {
     apiFetch(`/api/instances/${id}`)
@@ -44,6 +50,7 @@ export default function Instance({ id, title, onDelete }) {
         setTab(data.tab || 'tg')
         setTgUrls(data.tgUrls || [])
         setSelectedFilter(data.filter || 'none')
+        setSelectedAuthor(data.author || 'none')
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
@@ -56,14 +63,15 @@ export default function Instance({ id, title, onDelete }) {
       mode,
       tab,
       tgUrls,
-      filter: selectedFilter
+      filter: selectedFilter,
+      author: selectedAuthor
     }
     apiFetch(`/api/instances/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).catch(() => {})
-  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter])
+  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor])
 
   const addTgUrl = (url) => {
     setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
@@ -93,6 +101,14 @@ export default function Instance({ id, title, onDelete }) {
     filtersRef.current = filters
   }, [filters])
 
+  useEffect(() => {
+    authorRef.current = selectedAuthor
+  }, [selectedAuthor])
+
+  useEffect(() => {
+    authorsRef.current = authors
+  }, [authors])
+
   const connect = (endpoint, params) => {
     if (es) return
     const qs = new URLSearchParams(params)
@@ -109,8 +125,7 @@ export default function Instance({ id, title, onDelete }) {
           ? `${item.text || item.title}\n${item.url}`
           : `*${item.title}*\n${item.url}`
         const media = item.media?.find(m => m.endsWith('.mp4')) || item.media?.[0]
-        const send = (score) => {
-          const text = score != null ? `Score for this post is ${score}\n${base}` : base
+        const send = (text) => {
           channelsRef.current.forEach(ch => {
             apiFetch('/api/post', {
               method: 'POST',
@@ -130,11 +145,37 @@ export default function Instance({ id, title, onDelete }) {
             .then(data => {
               const fobj = filtersRef.current.find(f => f.id === fid)
               const threshold = fobj && typeof fobj.min_score === 'number' ? fobj.min_score : 7
-              if (data.score > threshold) send(data.score)
+              if (data.score > threshold) {
+                const aid = authorRef.current
+                if (aid && aid !== 'none') {
+                  apiFetch(`/api/authors/${aid}/rewrite`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: base })
+                  })
+                    .then(r => r.json())
+                    .then(resp => send(resp.text))
+                    .catch(() => {})
+                } else {
+                  send(base)
+                }
+              }
             })
             .catch(() => {})
         } else {
-          send(null)
+          const aid = authorRef.current
+          if (aid && aid !== 'none') {
+            apiFetch(`/api/authors/${aid}/rewrite`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: base })
+            })
+              .then(r => r.json())
+              .then(resp => send(resp.text))
+              .catch(() => {})
+          } else {
+            send(base)
+          }
         }
       }
     }
@@ -145,8 +186,8 @@ export default function Instance({ id, title, onDelete }) {
   }
 
   const startScraping = () => {
-    if (!selectedChannels.length || selectedFilter === 'none') {
-      window.alert('Please select at least one channel and a filter before starting.')
+    if (!selectedChannels.length || selectedFilter === 'none' || selectedAuthor === 'none') {
+      window.alert('Please select at least one channel, a filter and an author before starting.')
       return
     }
     setPosting(false)
@@ -161,8 +202,8 @@ export default function Instance({ id, title, onDelete }) {
       window.alert('Posting is already started')
       return
     }
-    if (tab === 'tg' && (!selectedChannels.length || selectedFilter === 'none')) {
-      window.alert('Please select at least one channel and a filter before starting.')
+    if (tab === 'tg' && (!selectedChannels.length || selectedFilter === 'none' || selectedAuthor === 'none')) {
+      window.alert('Please select at least one channel, a filter and an author before starting.')
       return
     }
     if (!window.confirm('Start posting to the selected Telegram channels?')) return
@@ -237,12 +278,20 @@ export default function Instance({ id, title, onDelete }) {
       .then(data => setFilters(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    apiFetch('/api/authors')
+      .then(r => r.json())
+      .then(data => setAuthors(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
   return (
     <div className="App instance">
       <h3>{title}</h3>
       <div className="tabs">
         <Button onClick={() => setTab('tg')} className={tab === 'tg' ? 'active' : ''}>TG Scraping</Button>
         <Button onClick={() => setTab('filters')} className={tab === 'filters' ? 'active' : ''}>Filters</Button>
+        <Button onClick={() => setTab('authors')} className={tab === 'authors' ? 'active' : ''}>Author GPT</Button>
         <Button onClick={() => setTab('admin')} className={tab === 'admin' ? 'active' : ''}>Administration</Button>
       </div>
       <Logs logs={logs} />
@@ -251,11 +300,14 @@ export default function Instance({ id, title, onDelete }) {
         <>
           <TGSources urls={tgUrls} addUrl={addTgUrl} removeUrl={removeTgUrl} />
           <FilterSelect filters={filters} selected={selectedFilter} setSelected={setSelectedFilter} />
+          <AuthorSelect authors={authors} selected={selectedAuthor} setSelected={setSelectedAuthor} />
         </>
       ) : tab === 'admin' ? (
         <AdminTab instanceId={id} onDelete={() => onDelete && onDelete(id)} />
-      ) : (
+      ) : tab === 'filters' ? (
         <FiltersTab filters={filters} setFilters={setFilters} />
+      ) : (
+        <AuthorsTab authors={authors} setAuthors={setAuthors} />
       )}
       {tab === 'tg' && (
         <>

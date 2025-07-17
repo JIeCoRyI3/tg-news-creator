@@ -16,7 +16,7 @@ describe('NewsItem', () => {
 
   test('renders json', () => {
     render(<NewsItem item={item} mode="json" />)
-    expect(screen.getByText(/\"Title\"/)).toBeInTheDocument()
+    expect(screen.getByText(/"Title"/)).toBeInTheDocument()
   })
 
   test('renders title', () => {
