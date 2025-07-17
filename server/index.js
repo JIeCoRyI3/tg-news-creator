@@ -229,7 +229,7 @@ loadUsers();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
-  const m = /^([a-z]+):(.+)$/.exec(query.data || '');
+  const m = /^([a-z_]+):(.+)$/.exec(query.data || '');
   if (!m) return;
   const [, action, id] = m;
   if (action === 'approve') {
