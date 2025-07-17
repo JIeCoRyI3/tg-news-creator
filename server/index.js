@@ -236,15 +236,23 @@ botEvents.on('callback', async (query) => {
     const post = awaitingPosts.get(id);
     if (post) {
       awaitingPosts.delete(id);
-      await postToChannel(post);
-      answerCallback(query.id, 'Approved').catch(() => {});
+      try {
+        await postToChannel(post);
+        await answerCallback(query.id, 'Approved');
+      } catch (e) {
+        await answerCallback(query.id, 'Failed to post');
+      }
     }
   } else if (action === 'approve_text') {
     const post = awaitingPosts.get(id);
     if (post) {
       awaitingPosts.delete(id);
-      await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
-      answerCallback(query.id, 'Approved without image').catch(() => {});
+      try {
+        await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
+        await answerCallback(query.id, 'Approved without image');
+      } catch (e) {
+        await answerCallback(query.id, 'Failed to post');
+      }
     }
   } else if (action === 'cancel') {
     if (awaitingPosts.has(id)) {
@@ -611,8 +619,13 @@ app.post('/api/awaiting/:id/approve', async (req, res) => {
   const post = awaitingPosts.get(id);
   if (!post) return res.status(404).json({ error: 'not found' });
   awaitingPosts.delete(id);
-  await postToChannel(post);
-  res.json({ ok: true });
+  try {
+    await postToChannel(post);
+    res.json({ ok: true });
+  } catch (e) {
+    log(`Failed posting awaiting ${id}: ${e.message}`, post.instanceId);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/awaiting/:id/text', async (req, res) => {
@@ -620,8 +633,13 @@ app.post('/api/awaiting/:id/text', async (req, res) => {
   const post = awaitingPosts.get(id);
   if (!post) return res.status(404).json({ error: 'not found' });
   awaitingPosts.delete(id);
-  await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
-  res.json({ ok: true });
+  try {
+    await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
+    res.json({ ok: true });
+  } catch (e) {
+    log(`Failed posting awaiting text ${id}: ${e.message}`, post.instanceId);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/awaiting/:id/cancel', (req, res) => {
@@ -632,6 +650,9 @@ app.post('/api/awaiting/:id/cancel', (req, res) => {
 });
 
 function postToChannel({ channel, text, media, instanceId }) {
+  if (!media && (!text || !text.trim())) {
+    return Promise.reject(new Error('text or media required'));
+  }
   return media
     ? (media.toLowerCase().endsWith('.mp4')
         ? sendVideo(channel, media, text, {}, instanceId)
