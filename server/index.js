@@ -246,17 +246,32 @@ botEvents.on('callback', async (query) => {
   } else if (action === 'approve_image') {
     const post = awaitingPosts.get(id);
     if (post) {
-      awaitingPosts.delete(id);
+      if (query.message) {
+        deleteMessage(query.message.chat.id, query.message.message_id).catch(() => {});
+      }
+      answerCallback(query.id).catch(() => {});
+      sendMessage(query.from.id, 'Generating image...', {}, post.instanceId).catch(() => {});
       try {
+        log(`Generating image for post ${id}`, post.instanceId);
         const prompt = `Create an image for a Telegram post based on the following text: ${post.text}. The image should have a stylish, minimalistic design with modern, fashionable gradients.`;
         const img = await openai.images.generate({ model: 'dall-e-3', prompt });
         const url = img.data?.[0]?.url;
-        await postToChannel({ channel: post.channel, text: post.text, media: url, instanceId: post.instanceId });
-        await answerCallback(query.id, 'Approved with image');
+        log(`Generated image for post ${id}`, post.instanceId);
+        post.media = url;
+        awaitingPosts.set(id, post);
+        const inst = instances.find(i => i.id === post.instanceId);
+        const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
+        for (const [uid, name] of activeApprovers.entries()) {
+          if (approverList.includes(name)) {
+            sendApprovalRequest(uid, post).catch(() => {});
+          }
+        }
       } catch (e) {
-        await answerCallback(query.id, 'Failed to post');
+        log(`Failed generating image for post ${id}: ${e.message}`, post.instanceId);
+        sendMessage(query.from.id, 'Failed to generate image.', {}, post.instanceId).catch(() => {});
       }
     }
+    return;
   } else if (action === 'cancel') {
     if (awaitingPosts.has(id)) {
       awaitingPosts.delete(id);
@@ -635,15 +650,24 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
   const { id } = req.params;
   const post = awaitingPosts.get(id);
   if (!post) return res.status(404).json({ error: 'not found' });
-  awaitingPosts.delete(id);
   try {
+    log(`Generating image for post ${id}`, post.instanceId);
     const prompt = `Create an image for a Telegram post based on the following text: ${post.text}. The image should have a stylish, minimalistic design with modern, fashionable gradients.`;
     const img = await openai.images.generate({ model: 'dall-e-3', prompt });
     const url = img.data?.[0]?.url;
-    await postToChannel({ channel: post.channel, text: post.text, media: url, instanceId: post.instanceId });
+    log(`Generated image for post ${id}`, post.instanceId);
+    post.media = url;
+    awaitingPosts.set(id, post);
+    const inst = instances.find(i => i.id === post.instanceId);
+    const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
+    for (const [uid, name] of activeApprovers.entries()) {
+      if (approverList.includes(name)) {
+        sendApprovalRequest(uid, post).catch(() => {});
+      }
+    }
     res.json({ ok: true });
   } catch (e) {
-    log(`Failed posting awaiting image ${id}: ${e.message}`, post.instanceId);
+    log(`Failed generating image for post ${id}: ${e.message}`, post.instanceId);
     res.status(500).json({ error: e.message });
   }
 });
