@@ -4,6 +4,8 @@ import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
+const IMAGE_MODELS = ['dall-e-3', 'dall-e-2', 'gpt-image-1']
+
 export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt }) {
   const [username, setUsername] = useState('')
   const [approvers, setApprovers] = useState([])
@@ -134,11 +136,11 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
       </ul>
       <h4>Image Generation</h4>
       <div className="tg-input">
-        <input
-          value={imageModel}
-          onChange={e => setImageModel(e.target.value)}
-          placeholder="Model"
-        />
+        <select value={imageModel} onChange={e => setImageModel(e.target.value)}>
+          {IMAGE_MODELS.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
       </div>
       <div className="tg-input">
         <textarea
