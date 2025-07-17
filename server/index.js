@@ -79,6 +79,9 @@ let tgSources = [];
 const FILTERS_FILE = path.join(__dirname, 'filters.json');
 let filters = [];
 
+const AUTHORS_FILE = path.join(__dirname, 'authors.json');
+let authors = [];
+
 const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
 // list of allowed approver usernames in lower case
 let approvers = [];
@@ -160,6 +163,24 @@ function saveFilters() {
   }
 }
 
+function loadAuthors() {
+  try {
+    const data = fs.readFileSync(AUTHORS_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) authors = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load authors', e);
+  }
+}
+
+function saveAuthors() {
+  try {
+    fs.writeFileSync(AUTHORS_FILE, JSON.stringify(authors, null, 2));
+  } catch (e) {
+    console.error('Failed to save authors', e);
+  }
+}
+
 function loadApprovers() {
   try {
     const data = fs.readFileSync(APPROVERS_FILE, 'utf8');
@@ -202,6 +223,7 @@ function saveUsers() {
 
 loadTgSources();
 loadFilters();
+loadAuthors();
 loadInstances();
 loadUsers();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
@@ -490,13 +512,13 @@ app.get('/api/channels', (req, res) => {
 });
 
 app.get('/api/instances', (req, res) => {
-  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', mode = 'json', tab = 'tg' }) => ({ id, title, tgUrls, channels, filter, mode, tab })));
+  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', author = 'none', mode = 'json', tab = 'tg' }) => ({ id, title, tgUrls, channels, filter, author, mode, tab })));
 });
 
 app.post('/api/instances', (req, res) => {
   const { title } = req.body;
   if (!title) return res.status(400).json({ error: 'title required' });
-  const inst = { id: Date.now().toString(16) + Math.random().toString(16).slice(2), title, tgUrls: [], channels: [], filter: 'none', mode: 'json', tab: 'tg', approvers: [] };
+  const inst = { id: Date.now().toString(16) + Math.random().toString(16).slice(2), title, tgUrls: [], channels: [], filter: 'none', author: 'none', mode: 'json', tab: 'tg', approvers: [] };
   instances.push(inst);
   saveInstances();
   res.json(inst);
@@ -813,6 +835,89 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     const msg = e.message;
     console.error('Failed to evaluate filter', msg);
     log(`Failed to evaluate filter: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.get('/api/authors', (req, res) => {
+  res.json(authors);
+});
+
+app.post('/api/authors', upload.none(), async (req, res) => {
+  try {
+    const { title, model, instructions, vector_store_id } = req.body;
+    if (!title || !model || !instructions) return res.status(400).json({ error: 'missing fields' });
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    log(`Creating author ${title}`);
+    const vectorStoreId = vector_store_id || null;
+    const createResp = await openai.beta.assistants.create({
+      name: title,
+      model,
+      instructions,
+      tools: vectorStoreId ? [{ type: 'file_search' }] : [],
+      tool_resources: vectorStoreId ? { file_search: { vector_store_ids: [vectorStoreId] } } : undefined
+    });
+    const info = { id: createResp.id, title, model, instructions, file_ids: [], vector_store_id: vectorStoreId };
+    authors.push(info);
+    saveAuthors();
+    log(`Created author ${title}`);
+    res.json(info);
+  } catch (e) {
+    const msg = e.message;
+    console.error('Failed to create author', msg);
+    log(`Failed to create author: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.post('/api/authors/:id/files', upload.array('attachments'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const author = authors.find(a => a.id === id);
+    if (!author) return res.status(404).json({ error: 'not found' });
+    if (!author.vector_store_id) return res.status(400).json({ error: 'no vector store' });
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    const added = [];
+    for (const file of req.files || []) {
+      const toUpload = await toFile(fs.createReadStream(file.path), file.originalname);
+      const info = await openai.vectorStores.files.upload(author.vector_store_id, toUpload);
+      added.push(info.id);
+      fs.unlink(file.path, () => {});
+    }
+    author.file_ids.push(...added);
+    saveAuthors();
+    log(`Added ${added.length} file(s) to author ${author.title}`);
+    res.json({ file_ids: added });
+  } catch (e) {
+    const msg = e.message;
+    console.error('Failed to add files', msg);
+    log(`Failed to add files: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.post('/api/authors/:id/rewrite', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const author = authors.find(a => a.id === id);
+    if (!author) return res.status(404).json({ error: 'not found' });
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: 'text required' });
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
+    log(`Authoring post with ${author.title}`);
+    const resp = await openai.chat.completions.create({
+      model: author.model,
+      messages: [
+        { role: 'system', content: author.instructions },
+        { role: 'user', content: text }
+      ]
+    });
+    const newText = resp.choices[0].message.content;
+    res.json({ text: newText });
+  } catch (e) {
+    const msg = e.message;
+    console.error('Failed to rewrite text', msg);
+    log(`Failed to rewrite text: ${msg}`);
     res.status(500).json({ error: msg });
   }
 });

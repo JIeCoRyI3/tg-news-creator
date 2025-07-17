@@ -30,4 +30,10 @@ export default [
       ],
     },
   },
+  {
+    files: ['**/__tests__/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.jest, vi: 'readonly' }
+    }
+  },
 ]

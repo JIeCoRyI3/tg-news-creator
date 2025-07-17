@@ -4,7 +4,7 @@ import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
-export default function FiltersTab({ filters, setFilters }) {
+export default function AuthorsTab({ authors, setAuthors }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [model, setModel] = useState('gpt-3.5-turbo')
@@ -12,8 +12,7 @@ export default function FiltersTab({ filters, setFilters }) {
   const [instructions, setInstructions] = useState('')
   const [_files, setFiles] = useState([])
   const [vectorId, setVectorId] = useState(null)
-  const [minScore, setMinScore] = useState(7)
-  const [openFilter, setOpenFilter] = useState(null)
+  const [openAuthor, setOpenAuthor] = useState(null)
 
   useEffect(() => {
     apiFetch('/api/models')
@@ -32,21 +31,19 @@ export default function FiltersTab({ filters, setFilters }) {
     fd.append('title', title)
     fd.append('model', model)
     fd.append('instructions', instructions)
-    fd.append('min_score', minScore)
     if (vectorId) fd.append('vector_store_id', vectorId)
-    apiFetch('/api/filters', {
+    apiFetch('/api/authors', {
       method: 'POST',
       body: fd
     })
       .then(r => r.json())
       .then(data => {
-        setFilters(prev => [...prev, data])
+        setAuthors(prev => [...prev, data])
         setShowForm(false)
         setTitle('')
         setInstructions('')
         setFiles([])
         setVectorId(null)
-        setMinScore(7)
       })
       .catch(() => {})
   }
@@ -73,10 +70,10 @@ export default function FiltersTab({ filters, setFilters }) {
   return (
     <div className="filters-tab">
       <ul>
-        {filters.map(f => (
-          <li key={f.id}>
-            <span onClick={() => setOpenFilter(f)} style={{ cursor: 'pointer' }}>
-              {f.title}
+        {authors.map(a => (
+          <li key={a.id}>
+            <span onClick={() => setOpenAuthor(a)} style={{ cursor: 'pointer' }}>
+              {a.title}
             </span>
           </li>
         ))}
@@ -97,39 +94,22 @@ export default function FiltersTab({ filters, setFilters }) {
             )}
           </select>
           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="Instructions" />
-          <input type="number" value={minScore} onChange={e => setMinScore(Number(e.target.value))} placeholder="Min score" />
           <input type="file" multiple onChange={e => uploadFiles(Array.from(e.target.files))} />
           <Button onClick={create}>Save</Button>
           <Button onClick={() => setShowForm(false)}>Cancel</Button>
         </div>
       ) : (
-        <Button onClick={() => setShowForm(true)}>Create a filter</Button>
+        <Button onClick={() => setShowForm(true)}>Create an author</Button>
       )}
       <Modal
-        open={!!openFilter}
-        onClose={() => setOpenFilter(null)}
-        actions={openFilter && (
-          <Button onClick={() => {
-            apiFetch(`/api/filters/${openFilter.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ min_score: openFilter.min_score })
-            }).then(r => r.json())
-              .then(data => {
-                setFilters(prev => prev.map(f => f.id === data.id ? data : f))
-                setOpenFilter(null)
-              }).catch(() => {})
-          }}>Save</Button>
-        )}
+        open={!!openAuthor}
+        onClose={() => setOpenAuthor(null)}
       >
-        {openFilter && (
+        {openAuthor && (
           <div>
-            <h4>{openFilter.title}</h4>
-            <div>Model: {openFilter.model}</div>
-            <div>
-              Min score: <input type="number" value={openFilter.min_score} onChange={e => setOpenFilter({ ...openFilter, min_score: Number(e.target.value) })} />
-            </div>
-            <pre style={{ whiteSpace: 'pre-wrap' }}>{openFilter.instructions}</pre>
+            <h4>{openAuthor.title}</h4>
+            <div>Model: {openAuthor.model}</div>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>{openAuthor.instructions}</pre>
           </div>
         )}
       </Modal>
@@ -137,7 +117,7 @@ export default function FiltersTab({ filters, setFilters }) {
   )
 }
 
-FiltersTab.propTypes = {
-  filters: PropTypes.arrayOf(PropTypes.object).isRequired,
-  setFilters: PropTypes.func.isRequired
+AuthorsTab.propTypes = {
+  authors: PropTypes.arrayOf(PropTypes.object).isRequired,
+  setAuthors: PropTypes.func.isRequired
 }
