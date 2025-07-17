@@ -239,6 +239,13 @@ botEvents.on('callback', async (query) => {
       await postToChannel(post);
       answerCallback(query.id, 'Approved').catch(() => {});
     }
+  } else if (action === 'approve_text') {
+    const post = awaitingPosts.get(id);
+    if (post) {
+      awaitingPosts.delete(id);
+      await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
+      answerCallback(query.id, 'Approved without image').catch(() => {});
+    }
   } else if (action === 'cancel') {
     if (awaitingPosts.has(id)) {
       awaitingPosts.delete(id);
@@ -605,6 +612,15 @@ app.post('/api/awaiting/:id/approve', async (req, res) => {
   if (!post) return res.status(404).json({ error: 'not found' });
   awaitingPosts.delete(id);
   await postToChannel(post);
+  res.json({ ok: true });
+});
+
+app.post('/api/awaiting/:id/text', async (req, res) => {
+  const { id } = req.params;
+  const post = awaitingPosts.get(id);
+  if (!post) return res.status(404).json({ error: 'not found' });
+  awaitingPosts.delete(id);
+  await postToChannel({ channel: post.channel, text: post.text, instanceId: post.instanceId });
   res.json({ ok: true });
 });
 

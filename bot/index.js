@@ -143,7 +143,7 @@ async function addChannel(instanceId, link) {
 
 async function sendMessage(channel, text, options = {}, instanceId) {
   try {
-    await bot.sendMessage(channel, text, { parse_mode: 'Markdown', ...options });
+    await bot.sendMessage(channel, text, { parse_mode: 'HTML', ...options });
     const msg = `Sent message to ${channel}`;
     console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
     botEvents.emit('log', { message: msg, instanceId });
@@ -157,7 +157,7 @@ async function sendMessage(channel, text, options = {}, instanceId) {
 
 async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   try {
-    await bot.sendPhoto(channel, url, { caption, parse_mode: 'Markdown', ...options });
+    await bot.sendPhoto(channel, url, { caption, parse_mode: 'HTML', ...options });
     const msg = `Sent photo to ${channel}`;
     console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
     botEvents.emit('log', { message: msg, instanceId });
@@ -171,7 +171,7 @@ async function sendPhoto(channel, url, caption, options = {}, instanceId) {
 
 async function sendVideo(channel, url, caption, options = {}, instanceId) {
   try {
-    await bot.sendVideo(channel, url, { caption, parse_mode: 'Markdown', ...options });
+    await bot.sendVideo(channel, url, { caption, parse_mode: 'HTML', ...options });
     const msg = `Sent video to ${channel}`;
     console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
     botEvents.emit('log', { message: msg, instanceId });
@@ -186,6 +186,7 @@ async function sendVideo(channel, url, caption, options = {}, instanceId) {
 async function sendApprovalRequest(userId, post) {
   const keyboard = { inline_keyboard: [[
     { text: 'Approve', callback_data: `approve:${post.id}` },
+    { text: 'Post without image', callback_data: `approve_text:${post.id}` },
     { text: 'Cancel', callback_data: `cancel:${post.id}` }
   ]] };
   const text = `Approve post to ${post.channel}?\n${post.text}`;
