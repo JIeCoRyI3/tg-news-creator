@@ -11,6 +11,10 @@ export default function AdminTab({ instanceId, onDelete }) {
   const [channelLink, setChannelLink] = useState('')
   const [channels, setChannels] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showImageModal, setShowImageModal] = useState(false)
+  const [imagePrompt, setImagePrompt] = useState('Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
+  const [imageModel, setImageModel] = useState('dall-e-3')
+  const [imagePostId, setImagePostId] = useState(null)
 
   const load = () => {
     apiFetch(`/api/instances/${instanceId}/approvers`)
@@ -74,8 +78,24 @@ export default function AdminTab({ instanceId, onDelete }) {
   }
 
   const approveImage = (id) => {
-    apiFetch(`/api/awaiting/${id}/image`, { method: 'POST' })
-      .then(load).catch(() => {})
+    setImagePostId(id)
+    setShowImageModal(true)
+  }
+
+  const generateImage = () => {
+    if (!imagePostId) return
+    const body = { model: imageModel, prompt: imagePrompt }
+    apiFetch(`/api/awaiting/${imagePostId}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(() => {
+        setShowImageModal(false)
+        setImagePostId(null)
+        load()
+      })
+      .catch(() => {})
   }
 
   const cancel = (id) => {
@@ -133,6 +153,26 @@ export default function AdminTab({ instanceId, onDelete }) {
         actions={<Button onClick={doDelete}>Delete</Button>}
       >
         Are you sure you want to delete this instance?
+      </Modal>
+      <Modal
+        open={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        actions={<Button onClick={generateImage}>Generate</Button>}
+      >
+        <div className="tg-input">
+          <input
+            value={imageModel}
+            onChange={e => setImageModel(e.target.value)}
+            placeholder="Model"
+          />
+        </div>
+        <div className="tg-input">
+          <textarea
+            value={imagePrompt}
+            onChange={e => setImagePrompt(e.target.value)}
+            rows="4"
+          />
+        </div>
       </Modal>
     </div>
   )

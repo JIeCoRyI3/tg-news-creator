@@ -652,8 +652,12 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
   if (!post) return res.status(404).json({ error: 'not found' });
   try {
     log(`Generating image for post ${id}`, post.instanceId);
-    const prompt = `Create an image for a Telegram post based on the following text: ${post.text}. The image should have a stylish, minimalistic design with modern, fashionable gradients.`;
-    const img = await openai.images.generate({ model: 'dall-e-3', prompt });
+    const body = req.body || {};
+    const model = body.model || 'dall-e-3';
+    const basePrompt = body.prompt ||
+      'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.';
+    const prompt = basePrompt.split('{postText}').join(post.text);
+    const img = await openai.images.generate({ model, prompt });
     const url = img.data?.[0]?.url;
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;
