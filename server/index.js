@@ -329,27 +329,15 @@ async function detectMimeAndData(filePath) {
 
 async function generateImage(model, basePrompt, text, inst) {
   const prompt = basePrompt.split('{postText}').join(text);
-  const withRefs = (model === 'gpt-image-1' || model === 'gpt-4o') &&
-    Array.isArray(inst?.referenceImages) && inst.referenceImages.length;
-  if (withRefs) {
-    const images = await Promise.all(
-      inst.referenceImages.map(async (name) => {
-        const { mime, data } = await detectMimeAndData(path.join(__dirname, 'uploads', name));
-        return { type: 'image_url', image_url: { url: `data:${mime};base64,${data}` } };
-      })
-    );
-    const resp = await openai.chat.completions.create({
-      model,
-      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...images] }],
-      response_format: { type: 'image_url' }
-    });
-    const content = resp.choices?.[0]?.message?.content;
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-      const first = content.find(c => c.type === 'image_url');
-      if (first?.image_url?.url) return first.image_url.url;
-    }
-    if (content && typeof content === 'object' && content.url) return content.url;
+  const refs = Array.isArray(inst?.referenceImages) ? inst.referenceImages : [];
+  if ((model === 'gpt-image-1' || model === 'gpt-4o') && refs.length) {
+    const images = refs.map(name =>
+      fs.createReadStream(path.join(__dirname, 'uploads', name)));
+    const img = await openai.images.edit({ model, prompt, image: images });
+    const first = img.data?.[0];
+    if (!first) return null;
+    if (first.url) return first.url;
+    if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
     return null;
   }
   const img = await openai.images.generate({ model, prompt });
