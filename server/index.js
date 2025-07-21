@@ -335,7 +335,7 @@ async function generateImage(model, basePrompt, text, inst) {
     const images = await Promise.all(
       inst.referenceImages.map(async (name) => {
         const { mime, data } = await detectMimeAndData(path.join(__dirname, 'uploads', name));
-        return { type: 'image_url', image_url: `data:${mime};base64,${data}` };
+        return { type: 'image_url', image_url: { url: `data:${mime};base64,${data}` } };
       })
     );
     const resp = await openai.chat.completions.create({
@@ -343,7 +343,14 @@ async function generateImage(model, basePrompt, text, inst) {
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...images] }],
       response_format: { type: 'image_url' }
     });
-    return resp.choices?.[0]?.message?.content?.url || null;
+    const content = resp.choices?.[0]?.message?.content;
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      const first = content.find(c => c.type === 'image_url');
+      if (first?.image_url?.url) return first.image_url.url;
+    }
+    if (content && typeof content === 'object' && content.url) return content.url;
+    return null;
   }
   const img = await openai.images.generate({ model, prompt });
   const first = img.data?.[0];
