@@ -101,7 +101,9 @@ function loadInstances() {
       instances = parsed.map(inst => ({
         imageModel: DEFAULT_IMAGE_MODEL,
         imagePrompt: DEFAULT_IMAGE_PROMPT,
-        ...inst
+        referenceImages: [],
+        ...inst,
+        referenceImages: Array.isArray(inst.referenceImages) ? inst.referenceImages : [],
       }));
     }
   } catch (e) {
@@ -265,7 +267,13 @@ botEvents.on('callback', async (query) => {
         const model = inst?.imageModel || DEFAULT_IMAGE_MODEL;
         const basePrompt = inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
         const prompt = basePrompt.split('{postText}').join(post.text);
-        const img = await openai.images.generate({ model, prompt });
+        let style_references;
+        if (model === 'gpt-image-1' && Array.isArray(inst?.referenceImages) && inst.referenceImages.length) {
+          style_references = await Promise.all(
+            inst.referenceImages.map(name => toFile(fs.createReadStream(path.join(__dirname, 'uploads', name)), name))
+          );
+        }
+        const img = await openai.images.generate({ model, prompt, ...(style_references ? { style_references } : {}) });
         const url = img.data?.[0]?.url;
         log(`Generated image for post ${id}`, post.instanceId);
         post.media = url;
@@ -350,6 +358,7 @@ const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST));
 }
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const swaggerSpec = swaggerJsdoc({
   definition: {
@@ -555,7 +564,7 @@ app.get('/api/channels', (req, res) => {
 });
 
 app.get('/api/instances', (req, res) => {
-  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', author = 'none', mode = 'json', tab = 'tg', imageModel = DEFAULT_IMAGE_MODEL, imagePrompt = DEFAULT_IMAGE_PROMPT }) => ({ id, title, tgUrls, channels, filter, author, mode, tab, imageModel, imagePrompt })));
+  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', author = 'none', mode = 'json', tab = 'tg', imageModel = DEFAULT_IMAGE_MODEL, imagePrompt = DEFAULT_IMAGE_PROMPT, referenceImages = [] }) => ({ id, title, tgUrls, channels, filter, author, mode, tab, imageModel, imagePrompt, referenceImages })));
 });
 
 app.post('/api/instances', (req, res) => {
@@ -572,7 +581,8 @@ app.post('/api/instances', (req, res) => {
     tab: 'tg',
     approvers: [],
     imageModel: DEFAULT_IMAGE_MODEL,
-    imagePrompt: DEFAULT_IMAGE_PROMPT
+    imagePrompt: DEFAULT_IMAGE_PROMPT,
+    referenceImages: []
   };
   instances.push(inst);
   saveInstances();
@@ -650,6 +660,39 @@ app.post('/api/instances/:id/post-channels', async (req, res) => {
   }
 });
 
+app.get('/api/instances/:id/reference-images', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
+  res.json(inst.referenceImages || []);
+});
+
+app.post('/api/instances/:id/reference-images', upload.array('images', 5), (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
+  inst.referenceImages = inst.referenceImages || [];
+  if (inst.referenceImages.length + (req.files?.length || 0) > 5) {
+    return res.status(400).json({ error: 'max 5 images' });
+  }
+  for (const file of req.files || []) {
+    inst.referenceImages.push(file.filename);
+  }
+  saveInstances();
+  res.json(inst.referenceImages);
+});
+
+app.delete('/api/instances/:id/reference-images/:name', (req, res) => {
+  const inst = instances.find(i => i.id === req.params.id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
+  inst.referenceImages = inst.referenceImages || [];
+  const { name } = req.params;
+  const idx = inst.referenceImages.indexOf(name);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  inst.referenceImages.splice(idx, 1);
+  fs.unlink(path.join(__dirname, 'uploads', name), () => {});
+  saveInstances();
+  res.json({ ok: true });
+});
+
 app.get('/api/awaiting', (req, res) => {
   res.json(Array.from(awaitingPosts.values()));
 });
@@ -679,7 +722,13 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     const model = body.model || inst?.imageModel || DEFAULT_IMAGE_MODEL;
     const basePrompt = body.prompt || inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
     const prompt = basePrompt.split('{postText}').join(post.text);
-    const img = await openai.images.generate({ model, prompt });
+    let style_references;
+    if (model === 'gpt-image-1' && Array.isArray(inst?.referenceImages) && inst.referenceImages.length) {
+      style_references = await Promise.all(
+        inst.referenceImages.map(name => toFile(fs.createReadStream(path.join(__dirname, 'uploads', name)), name))
+      );
+    }
+    const img = await openai.images.generate({ model, prompt, ...(style_references ? { style_references } : {}) });
     const url = img.data?.[0]?.url;
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;
