@@ -13,6 +13,7 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
   const [channelLink, setChannelLink] = useState('')
   const [channels, setChannels] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [refImages, setRefImages] = useState([])
 
   const load = () => {
     apiFetch(`/api/instances/${instanceId}/approvers`)
@@ -29,6 +30,10 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
         const arr = Object.entries(data).map(([cid, info]) => ({ id: cid, ...info }))
         setChannels(arr)
       })
+      .catch(() => {})
+    apiFetch(`/api/instances/${instanceId}/reference-images`)
+      .then(r => r.json())
+      .then(data => setRefImages(Array.isArray(data) ? data : []))
       .catch(() => {})
   }
 
@@ -91,6 +96,26 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
       .then(load).catch(() => {})
   }
 
+  const uploadImages = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const fd = new FormData()
+    files.forEach(f => fd.append('images', f))
+    apiFetch(`/api/instances/${instanceId}/reference-images`, {
+      method: 'POST',
+      body: fd
+    }).then(() => {
+      e.target.value = ''
+      load()
+    }).catch(() => {})
+  }
+
+  const removeImage = (name) => {
+    apiFetch(`/api/instances/${instanceId}/reference-images/${name}`, { method: 'DELETE' })
+      .then(load)
+      .catch(() => {})
+  }
+
   const doDelete = () => {
     apiFetch(`/api/instances/${instanceId}`, { method: 'DELETE' })
       .then(() => {
@@ -149,6 +174,22 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
           rows="4"
         />
       </div>
+      <div className="tg-input">
+        <input
+          type="file"
+          multiple
+          onChange={uploadImages}
+          disabled={imageModel !== 'gpt-image-1' || refImages.length >= 5}
+        />
+      </div>
+      <ul>
+        {refImages.map(img => (
+          <li key={img}>
+            <img src={`/uploads/${img}`} alt="" />
+            <Button onClick={() => removeImage(img)} disabled={imageModel !== 'gpt-image-1'}>Delete</Button>
+          </li>
+        ))}
+      </ul>
       <Button onClick={() => setConfirmDelete(true)}>Delete instance</Button>
       <Modal
         open={confirmDelete}
