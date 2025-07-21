@@ -4,7 +4,7 @@ import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
-const IMAGE_MODELS = ['dall-e-3', 'dall-e-2', 'gpt-image-1']
+const IMAGE_MODELS = ['dall-e-3', 'dall-e-2', 'gpt-image-1', 'gpt-4o']
 
 export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt }) {
   const [username, setUsername] = useState('')
@@ -179,14 +179,14 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
           type="file"
           multiple
           onChange={uploadImages}
-          disabled={imageModel !== 'gpt-image-1' || refImages.length >= 5}
+          disabled={(imageModel !== 'gpt-image-1' && imageModel !== 'gpt-4o') || refImages.length >= 5}
         />
       </div>
       <ul>
         {refImages.map(img => (
           <li key={img}>
             <img src={`/uploads/${img}`} alt="" />
-            <Button onClick={() => removeImage(img)} disabled={imageModel !== 'gpt-image-1'}>Delete</Button>
+            <Button onClick={() => removeImage(img)} disabled={imageModel !== 'gpt-image-1' && imageModel !== 'gpt-4o'}>Delete</Button>
           </li>
         ))}
       </ul>
