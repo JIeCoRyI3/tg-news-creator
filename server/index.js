@@ -266,15 +266,7 @@ botEvents.on('callback', async (query) => {
         const inst = instances.find(i => i.id === post.instanceId);
         const model = inst?.imageModel || DEFAULT_IMAGE_MODEL;
         const basePrompt = inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
-        const prompt = basePrompt.split('{postText}').join(post.text);
-        let style_references;
-        if (model === 'gpt-image-1' && Array.isArray(inst?.referenceImages) && inst.referenceImages.length) {
-          style_references = await Promise.all(
-            inst.referenceImages.map(name => toFile(fs.createReadStream(path.join(__dirname, 'uploads', name)), name))
-          );
-        }
-        const img = await openai.images.generate({ model, prompt, ...(style_references ? { style_references } : {}) });
-        const url = img.data?.[0]?.url;
+        const url = await generateImage(model, basePrompt, post.text, inst);
         log(`Generated image for post ${id}`, post.instanceId);
         post.media = url;
         awaitingPosts.set(id, post);
@@ -327,6 +319,39 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || 'none',
   ...(proxyUrl ? { fetchOptions: { dispatcher: new ProxyAgent(proxyUrl) } } : {})
 });
+
+async function detectMimeAndData(filePath) {
+  const buffer = await fs.promises.readFile(filePath);
+  let mime = 'image/jpeg';
+  if (buffer[0] === 0x89 && buffer[1] === 0x50) mime = 'image/png';
+  return { mime, data: buffer.toString('base64') };
+}
+
+async function generateImage(model, basePrompt, text, inst) {
+  const prompt = basePrompt.split('{postText}').join(text);
+  const withRefs = (model === 'gpt-image-1' || model === 'gpt-4o') &&
+    Array.isArray(inst?.referenceImages) && inst.referenceImages.length;
+  if (withRefs) {
+    const images = await Promise.all(
+      inst.referenceImages.map(async (name) => {
+        const { mime, data } = await detectMimeAndData(path.join(__dirname, 'uploads', name));
+        return { type: 'image_url', image_url: `data:${mime};base64,${data}` };
+      })
+    );
+    const resp = await openai.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...images] }],
+      response_format: { type: 'image_url' }
+    });
+    return resp.choices?.[0]?.message?.content?.url || null;
+  }
+  const img = await openai.images.generate({ model, prompt });
+  const first = img.data?.[0];
+  if (!first) return null;
+  if (first.url) return first.url;
+  if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
+  return null;
+}
 app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) return next();
@@ -721,15 +746,7 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     const inst = instances.find(i => i.id === post.instanceId);
     const model = body.model || inst?.imageModel || DEFAULT_IMAGE_MODEL;
     const basePrompt = body.prompt || inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
-    const prompt = basePrompt.split('{postText}').join(post.text);
-    let style_references;
-    if (model === 'gpt-image-1' && Array.isArray(inst?.referenceImages) && inst.referenceImages.length) {
-      style_references = await Promise.all(
-        inst.referenceImages.map(name => toFile(fs.createReadStream(path.join(__dirname, 'uploads', name)), name))
-      );
-    }
-    const img = await openai.images.generate({ model, prompt, ...(style_references ? { style_references } : {}) });
-    const url = img.data?.[0]?.url;
+    const url = await generateImage(model, basePrompt, post.text, inst);
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;
     awaitingPosts.set(id, post);
