@@ -327,12 +327,18 @@ async function detectMimeAndData(filePath) {
   return { mime, data: buffer.toString('base64') };
 }
 
+async function loadReferenceImage(name) {
+  const filePath = path.join(__dirname, 'uploads', name);
+  const { mime } = await detectMimeAndData(filePath);
+  const ext = mime === 'image/png' ? '.png' : '.jpg';
+  return toFile(fs.createReadStream(filePath), name + ext);
+}
+
 async function generateImage(model, basePrompt, text, inst) {
   const prompt = basePrompt.split('{postText}').join(text);
   const refs = Array.isArray(inst?.referenceImages) ? inst.referenceImages : [];
   if ((model === 'gpt-image-1' || model === 'gpt-4o') && refs.length) {
-    const images = refs.map(name =>
-      fs.createReadStream(path.join(__dirname, 'uploads', name)));
+    const images = await Promise.all(refs.map(loadReferenceImage));
     const img = await openai.images.edit({ model, prompt, image: images });
     const first = img.data?.[0];
     if (!first) return null;
