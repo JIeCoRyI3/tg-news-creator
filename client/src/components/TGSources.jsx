@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
+import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
 export default function TGSources({ urls, addUrl, removeUrl }) {
   const [value, setValue] = useState('')
   const [info, setInfo] = useState({})
+  const [open, setOpen] = useState(null)
 
   useEffect(() => {
     for (const url of urls) {
@@ -37,13 +39,28 @@ export default function TGSources({ urls, addUrl, removeUrl }) {
           const i = info[u] || {}
           return (
             <li key={u}>
-              {i.image && <img src={i.image} alt="" />}
-              <span>{i.title || u}</span>
+              {i.image && <img src={i.image} alt="" onClick={() => setOpen(u)} />}
+              <span onClick={() => setOpen(u)}>{i.title || u}</span>
               <Button onClick={() => removeUrl(u)}>Delete</Button>
             </li>
           )
         })}
       </ul>
+      <Modal
+        open={!!open}
+        onClose={() => setOpen(null)}
+        actions={open && (
+          <Button onClick={() => { removeUrl(open); setOpen(null) }}>Delete</Button>
+        )}
+      >
+        {open && (
+          <div className="tg-source-info">
+            {info[open]?.image && <img src={info[open].image} alt="" />}
+            <h4>{info[open]?.title || open}</h4>
+            <a href={open} target="_blank" rel="noopener noreferrer">{open}</a>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
