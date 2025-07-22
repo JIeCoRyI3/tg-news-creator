@@ -887,8 +887,11 @@ app.post('/api/post', async (req, res) => {
     }
     if (targets.length) {
       const id = customId || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const info = { id, channel, text, media, instanceId, tokens: 0, images: 0, cost: 0 };
+      const existing = costs[id] || { tokens: 0, images: 0, cost: 0 };
+      const info = { id, channel, text, media, instanceId, ...existing };
       awaitingPosts.set(id, info);
+      costs[id] = { tokens: info.tokens || 0, images: info.images || 0, cost: info.cost || 0 };
+      saveCosts();
       for (const uid of targets) {
         sendApprovalRequest(uid, info).catch(() => {});
       }
@@ -1081,11 +1084,17 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     const m = content.match(/(\d+(?:\.\d+)?)/);
     const score = m ? parseFloat(m[1]) : 0;
     const tokens = resp.usage?.total_tokens || 0;
-    if (post_id && awaitingPosts.has(post_id)) {
-      const post = awaitingPosts.get(post_id);
-      addTokenCost(post, filter.model, tokens);
-      awaitingPosts.set(post_id, post);
-      costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
+    if (post_id) {
+      if (awaitingPosts.has(post_id)) {
+        const post = awaitingPosts.get(post_id);
+        addTokenCost(post, filter.model, tokens);
+        awaitingPosts.set(post_id, post);
+        costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
+      } else {
+        const cost = costs[post_id] || { tokens: 0, images: 0, cost: 0 };
+        addTokenCost(cost, filter.model, tokens);
+        costs[post_id] = cost;
+      }
       saveCosts();
     }
     log(`Score ${score} for post`);
@@ -1173,11 +1182,17 @@ app.post('/api/authors/:id/rewrite', async (req, res) => {
     });
     const newText = resp.choices[0].message.content;
     const tokens = resp.usage?.total_tokens || 0;
-    if (post_id && awaitingPosts.has(post_id)) {
-      const post = awaitingPosts.get(post_id);
-      addTokenCost(post, author.model, tokens);
-      awaitingPosts.set(post_id, post);
-      costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
+    if (post_id) {
+      if (awaitingPosts.has(post_id)) {
+        const post = awaitingPosts.get(post_id);
+        addTokenCost(post, author.model, tokens);
+        awaitingPosts.set(post_id, post);
+        costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
+      } else {
+        const cost = costs[post_id] || { tokens: 0, images: 0, cost: 0 };
+        addTokenCost(cost, author.model, tokens);
+        costs[post_id] = cost;
+      }
       saveCosts();
     }
     res.json({ text: newText, tokens });
