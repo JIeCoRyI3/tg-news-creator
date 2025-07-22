@@ -127,6 +127,7 @@ export default function Instance({ id, title, onDelete }) {
       const item = JSON.parse(e.data)
       setNews(prev => [item, ...prev])
       if (postingRef.current) {
+        const postId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
         const base = tabRef.current === 'tg'
           ? `${item.text || item.title}\n${item.url}`
           : `*${item.title}*\n${item.url}`
@@ -136,7 +137,7 @@ export default function Instance({ id, title, onDelete }) {
             apiFetch('/api/post', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ channel: ch, text, media, instanceId: id })
+              body: JSON.stringify({ channel: ch, text, media, instanceId: id, id: postId })
             }).catch(() => {})
           })
         }
@@ -145,7 +146,7 @@ export default function Instance({ id, title, onDelete }) {
           apiFetch(`/api/filters/${fid}/evaluate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: base })
+            body: JSON.stringify({ text: base, post_id: postId })
           })
             .then(r => r.json())
             .then(data => {
@@ -157,7 +158,7 @@ export default function Instance({ id, title, onDelete }) {
                   apiFetch(`/api/authors/${aid}/rewrite`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: base })
+                    body: JSON.stringify({ text: base, post_id: postId })
                   })
                     .then(r => r.json())
                     .then(resp => send(resp.text))
@@ -174,7 +175,7 @@ export default function Instance({ id, title, onDelete }) {
             apiFetch(`/api/authors/${aid}/rewrite`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: base })
+              body: JSON.stringify({ text: base, post_id: postId })
             })
               .then(r => r.json())
               .then(resp => send(resp.text))
