@@ -209,8 +209,7 @@ async function sendApprovalRequest(userId, post) {
     { text: 'Approve with new image', callback_data: `approve_image:${post.id}` },
     { text: 'Cancel', callback_data: `cancel:${post.id}` }
   ]] };
-  const costText = post.cost != null ? `\nCost so far: $${post.cost.toFixed(4)}` : '';
-  const text = `Approve post to ${post.channel}?${costText}\n${post.text}`;
+  const text = `Approve post to ${post.channel}?\n${post.text}`;
   if (post.media) {
     if (post.media.toLowerCase().endsWith('.mp4')) {
       await sendVideo(userId, post.media, text, { reply_markup: keyboard });
