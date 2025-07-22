@@ -62,6 +62,11 @@ const { ProxyAgent } = require('undici');
 const JWT_SECRET = process.env.JWT_SECRET || 'tgnews-secret';
 const DEFAULT_IMAGE_MODEL = 'dall-e-3';
 const DEFAULT_IMAGE_PROMPT = 'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.';
+const DEFAULT_IMAGE_QUALITY = 'medium';
+const DEFAULT_IMAGE_SIZE = '1024x1024';
+const IMAGE_QUALITIES = ['low', 'medium', 'high'];
+const IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024'];
+const DALL_E2_SIZES = ['256x256', '512x512', '1024x1024'];
 
 const INSTANCES_FILE = path.join(__dirname, 'instances.json');
 let instances = [];
@@ -147,6 +152,8 @@ function loadInstances() {
       instances = parsed.map(inst => ({
         imageModel: DEFAULT_IMAGE_MODEL,
         imagePrompt: DEFAULT_IMAGE_PROMPT,
+        imageQuality: DEFAULT_IMAGE_QUALITY,
+        imageSize: DEFAULT_IMAGE_SIZE,
         referenceImages: [],
         ...inst,
         referenceImages: Array.isArray(inst.referenceImages) ? inst.referenceImages : [],
@@ -407,9 +414,16 @@ async function loadReferenceImage(name) {
 async function generateImage(model, basePrompt, text, inst, post) {
   const prompt = basePrompt.split('{postText}').join(text);
   const refs = Array.isArray(inst?.referenceImages) ? inst.referenceImages : [];
+  const quality = IMAGE_QUALITIES.includes(inst?.imageQuality)
+    ? inst.imageQuality
+    : DEFAULT_IMAGE_QUALITY;
+  let size = inst?.imageSize || DEFAULT_IMAGE_SIZE;
+  if (model === 'dall-e-2' && !DALL_E2_SIZES.includes(size)) size = DEFAULT_IMAGE_SIZE;
+  if (!IMAGE_SIZES.includes(size)) size = DEFAULT_IMAGE_SIZE;
   if ((model === 'gpt-image-1' || model === 'gpt-4o') && refs.length) {
     const images = await Promise.all(refs.map(loadReferenceImage));
-    const img = await openai.images.edit({ model, prompt, image: images });
+    const options = { model, prompt, image: images, size, quality };
+    const img = await openai.images.edit(options);
     const first = img.data?.[0];
     if (!first) return null;
     if (post) {
@@ -422,7 +436,8 @@ async function generateImage(model, basePrompt, text, inst, post) {
     if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
     return null;
   }
-  const img = await openai.images.generate({ model, prompt });
+  const options = { model, prompt, size, quality };
+  const img = await openai.images.generate(options);
   const first = img.data?.[0];
   if (!first) return null;
   if (post) {
@@ -672,7 +687,39 @@ app.get('/api/channels', (req, res) => {
 });
 
 app.get('/api/instances', (req, res) => {
-  res.json(instances.map(({ id, title, tgUrls = [], channels = [], filter = 'none', author = 'none', mode = 'json', tab = 'tg', imageModel = DEFAULT_IMAGE_MODEL, imagePrompt = DEFAULT_IMAGE_PROMPT, referenceImages = [] }) => ({ id, title, tgUrls, channels, filter, author, mode, tab, imageModel, imagePrompt, referenceImages })));
+  res.json(
+    instances.map(
+      ({
+        id,
+        title,
+        tgUrls = [],
+        channels = [],
+        filter = 'none',
+        author = 'none',
+        mode = 'json',
+        tab = 'tg',
+        imageModel = DEFAULT_IMAGE_MODEL,
+        imagePrompt = DEFAULT_IMAGE_PROMPT,
+        imageQuality = DEFAULT_IMAGE_QUALITY,
+        imageSize = DEFAULT_IMAGE_SIZE,
+        referenceImages = [],
+      }) => ({
+        id,
+        title,
+        tgUrls,
+        channels,
+        filter,
+        author,
+        mode,
+        tab,
+        imageModel,
+        imagePrompt,
+        imageQuality,
+        imageSize,
+        referenceImages,
+      }),
+    ),
+  );
 });
 
 app.post('/api/instances', (req, res) => {
@@ -690,6 +737,8 @@ app.post('/api/instances', (req, res) => {
     approvers: [],
     imageModel: DEFAULT_IMAGE_MODEL,
     imagePrompt: DEFAULT_IMAGE_PROMPT,
+    imageQuality: DEFAULT_IMAGE_QUALITY,
+    imageSize: DEFAULT_IMAGE_SIZE,
     referenceImages: []
   };
   instances.push(inst);
@@ -831,6 +880,8 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     const inst = instances.find(i => i.id === post.instanceId);
     const model = body.model || inst?.imageModel || DEFAULT_IMAGE_MODEL;
     const basePrompt = body.prompt || inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
+    if (body.quality) inst.imageQuality = body.quality;
+    if (body.size) inst.imageSize = body.size;
     const url = await generateImage(model, basePrompt, post.text, inst, post);
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;

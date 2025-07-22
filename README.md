@@ -84,6 +84,10 @@ curl -F title=News -F model=gpt-4o \
 
 Upload files first using the `/api/vector-stores` endpoint which creates a vector store. Pass the returned `vector_store_id` when creating the filter. When creation succeeds the API returns the filter id which can later be used to evaluate posts via `/api/filters/<id>/evaluate`.
 
+### Image generation settings
+
+The Administration tab lets you pick the image model, quality, and resolution. The available quality levels are **low**, **medium**, and **high** while the supported resolutions are **1024×1024**, **1024×1536**, and **1536×1024**. These options match the [OpenAI image API documentation](https://platform.openai.com/docs/api-reference/images/create).
+
 Additional knowledge can be added later using `/api/filters/<id>/files`:
 
 ```bash

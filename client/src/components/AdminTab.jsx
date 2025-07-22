@@ -5,8 +5,12 @@ import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
 const IMAGE_MODELS = ['dall-e-3', 'dall-e-2', 'gpt-image-1', 'gpt-4o']
+// official values from OpenAI docs
+const IMAGE_QUALITIES = ['low', 'medium', 'high']
+const IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024']
+const DALL_E2_SIZES = ['256x256', '512x512', '1024x1024']
 
-export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt }) {
+export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt, imageQuality, setImageQuality, imageSize, setImageSize }) {
   const [username, setUsername] = useState('')
   const [approvers, setApprovers] = useState([])
   const [queue, setQueue] = useState([])
@@ -81,7 +85,7 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
   }
 
   const approveImage = (id) => {
-    const body = { model: imageModel, prompt: imagePrompt }
+    const body = { model: imageModel, prompt: imagePrompt, quality: imageQuality, size: imageSize }
     apiFetch(`/api/awaiting/${id}/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -168,6 +172,24 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
         </select>
       </div>
       <div className="tg-input">
+        <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}>
+          {IMAGE_QUALITIES.map(q => (
+            <option key={q} value={q}>{q}</option>
+          ))}
+        </select>
+      </div>
+      <div className="tg-input">
+        <select value={imageSize} onChange={e => setImageSize(e.target.value)}>
+          {(
+            imageModel === 'dall-e-2'
+              ? DALL_E2_SIZES
+              : IMAGE_SIZES
+          ).map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+      <div className="tg-input">
         <textarea
           value={imagePrompt}
           onChange={e => setImagePrompt(e.target.value)}
@@ -208,5 +230,9 @@ AdminTab.propTypes = {
   imageModel: PropTypes.string.isRequired,
   setImageModel: PropTypes.func.isRequired,
   imagePrompt: PropTypes.string.isRequired,
-  setImagePrompt: PropTypes.func.isRequired
+  setImagePrompt: PropTypes.func.isRequired,
+  imageQuality: PropTypes.string.isRequired,
+  setImageQuality: PropTypes.func.isRequired,
+  imageSize: PropTypes.string.isRequired,
+  setImageSize: PropTypes.func.isRequired
 }
