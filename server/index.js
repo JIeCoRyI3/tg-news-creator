@@ -93,6 +93,8 @@ const activeApprovers = new Map(); // id -> username
 // Track token and image costs per post
 const TOKEN_PRICES = {
   'gpt-4o': 0.005,
+  'o3': 0.005,
+  'o4': 0.005,
   'gpt-4': 0.03,
   'gpt-4-turbo': 0.01,
   'gpt-3.5-turbo': 0.0005,
@@ -102,6 +104,8 @@ const IMAGE_PRICES = {
   'dall-e-3': 0.04,
   'dall-e-2': 0.02,
   'gpt-image-1': 0.01,
+  'o3': 0.01,
+  'o4': 0.01,
   'gpt-4o': 0.01,
   default: 0.02
 };
@@ -869,7 +873,7 @@ function postToChannel({ channel, text, media, instanceId }) {
 
 app.post('/api/post', async (req, res) => {
   try {
-    const { channel, text, media, instanceId } = req.body;
+    const { channel, text, media, instanceId, id: customId } = req.body;
     if (!channel) return res.status(400).json({ error: 'channel required' });
     if (!text && !media) return res.status(400).json({ error: 'text or media required' });
     const inst = instances.find(i => i.id === instanceId);
@@ -879,7 +883,7 @@ app.post('/api/post', async (req, res) => {
       if (approverList.includes(name)) targets.push(uid);
     }
     if (targets.length) {
-      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const id = customId || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const info = { id, channel, text, media, instanceId, tokens: 0, images: 0, cost: 0 };
       awaitingPosts.set(id, info);
       for (const uid of targets) {
