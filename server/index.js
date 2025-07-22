@@ -331,7 +331,7 @@ async function loadReferenceImage(name) {
   const filePath = path.join(__dirname, 'uploads', name);
   const { mime } = await detectMimeAndData(filePath);
   const ext = mime === 'image/png' ? '.png' : '.jpg';
-  return toFile(fs.createReadStream(filePath), name + ext);
+  return toFile(fs.createReadStream(filePath), name + ext, { type: mime });
 }
 
 async function generateImage(model, basePrompt, text, inst) {
