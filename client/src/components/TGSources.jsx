@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from './ui/Button.jsx'
+import apiFetch from '../api.js'
 
 export default function TGSources({ urls, addUrl, removeUrl }) {
   const [value, setValue] = useState('')
@@ -9,7 +10,7 @@ export default function TGSources({ urls, addUrl, removeUrl }) {
   useEffect(() => {
     for (const url of urls) {
       if (!info[url]) {
-        fetch(`/api/tg-source-info?url=${encodeURIComponent(url)}`)
+        apiFetch(`/api/tg-source-info?url=${encodeURIComponent(url)}`)
           .then(r => r.ok ? r.json() : null)
           .then(data => {
             if (data && data.title) {
