@@ -95,51 +95,6 @@ let approvers = [];
 const awaitingPosts = new Map();
 const activeApprovers = new Map(); // id -> username
 
-// Track token and image costs per post
-const TOKEN_PRICES = {
-  'gpt-4o': 0.005,
-  'o3': 0.005,
-  'o4': 0.005,
-  'gpt-4': 0.03,
-  'gpt-4-turbo': 0.01,
-  'gpt-3.5-turbo': 0.0005,
-  default: 0.005
-};
-const IMAGE_PRICES = {
-  'dall-e-3': 0.04,
-  'dall-e-2': 0.02,
-  'gpt-image-1': 0.01,
-  'o3': 0.01,
-  'o4': 0.01,
-  'gpt-4o': 0.01,
-  default: 0.02
-};
-
-const COSTS_FILE = path.join(__dirname, 'costs.json');
-let costs = {};
-
-function tokenPrice(model) {
-  for (const key of Object.keys(TOKEN_PRICES)) {
-    if (model.startsWith(key)) return TOKEN_PRICES[key];
-  }
-  return TOKEN_PRICES.default;
-}
-
-function imagePrice(model) {
-  return IMAGE_PRICES[model] || IMAGE_PRICES.default;
-}
-
-function addTokenCost(post, model, tokens) {
-  const price = tokens * tokenPrice(model) / 1000;
-  post.tokens = (post.tokens || 0) + tokens;
-  post.cost = (post.cost || 0) + price;
-}
-
-function addImageCost(post, model) {
-  const price = imagePrice(model);
-  post.images = (post.images || 0) + 1;
-  post.cost = (post.cost || 0) + price;
-}
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 let users = [];
@@ -284,30 +239,12 @@ function saveUsers() {
   }
 }
 
-function loadCosts() {
-  try {
-    const data = fs.readFileSync(COSTS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (parsed && typeof parsed === 'object') costs = parsed;
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load costs', e);
-  }
-}
-
-function saveCosts() {
-  try {
-    fs.writeFileSync(COSTS_FILE, JSON.stringify(costs, null, 2));
-  } catch (e) {
-    console.error('Failed to save costs', e);
-  }
-}
 
 loadTgSources();
 loadFilters();
 loadAuthors();
 loadInstances();
 loadUsers();
-loadCosts();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
@@ -318,8 +255,6 @@ botEvents.on('callback', async (query) => {
     const post = awaitingPosts.get(id);
     if (post) {
       awaitingPosts.delete(id);
-      costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
-      saveCosts();
       try {
         await postToChannel(post);
         await answerCallback(query.id, 'Approved');
@@ -360,8 +295,6 @@ botEvents.on('callback', async (query) => {
     const post = awaitingPosts.get(id);
     if (post) {
       awaitingPosts.delete(id);
-      costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
-      saveCosts();
       answerCallback(query.id, 'Cancelled').catch(() => {});
     }
   }
@@ -427,10 +360,7 @@ async function generateImage(model, basePrompt, text, inst, post) {
     const first = img.data?.[0];
     if (!first) return null;
     if (post) {
-      addImageCost(post, model);
       awaitingPosts.set(post.id, post);
-      costs[post.id] = { tokens: post.tokens || 0, images: post.images, cost: post.cost };
-      saveCosts();
     }
     if (first.url) return first.url;
     if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
@@ -441,10 +371,7 @@ async function generateImage(model, basePrompt, text, inst, post) {
   const first = img.data?.[0];
   if (!first) return null;
   if (post) {
-    addImageCost(post, model);
     awaitingPosts.set(post.id, post);
-    costs[post.id] = { tokens: post.tokens || 0, images: post.images, cost: post.cost };
-    saveCosts();
   }
   if (first.url) return first.url;
   if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
@@ -859,8 +786,6 @@ app.post('/api/awaiting/:id/approve', async (req, res) => {
   const post = awaitingPosts.get(id);
   if (!post) return res.status(404).json({ error: 'not found' });
   awaitingPosts.delete(id);
-  costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
-  saveCosts();
   try {
     await postToChannel(post);
     res.json({ ok: true });
@@ -904,10 +829,6 @@ app.post('/api/awaiting/:id/cancel', (req, res) => {
   if (!awaitingPosts.has(id)) return res.status(404).json({ error: 'not found' });
   const post = awaitingPosts.get(id);
   awaitingPosts.delete(id);
-  if (post) {
-    costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
-    saveCosts();
-  }
   res.json({ ok: true });
 });
 
@@ -938,11 +859,8 @@ app.post('/api/post', async (req, res) => {
     }
     if (targets.length) {
       const id = customId || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const existing = costs[id] || { tokens: 0, images: 0, cost: 0 };
-      const info = { id, channel, text, media, instanceId, ...existing };
+      const info = { id, channel, text, media, instanceId };
       awaitingPosts.set(id, info);
-      costs[id] = { tokens: info.tokens || 0, images: info.images || 0, cost: info.cost || 0 };
-      saveCosts();
       for (const uid of targets) {
         sendApprovalRequest(uid, info).catch(() => {});
       }
@@ -1003,6 +921,20 @@ app.delete('/api/tg-sources', (req, res) => {
     saveTgSources();
   }
   res.json({ ok: true });
+});
+
+app.get('/api/tg-source-info', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  try {
+    const posts = await scrapeTelegramChannel(url);
+    if (Array.isArray(posts) && posts.length) {
+      return res.json({ title: posts[0].channelTitle, image: posts[0].channelImage });
+    }
+    res.status(404).json({ error: 'not found' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/models', async (req, res) => {
@@ -1135,18 +1067,9 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     const m = content.match(/(\d+(?:\.\d+)?)/);
     const score = m ? parseFloat(m[1]) : 0;
     const tokens = resp.usage?.total_tokens || 0;
-    if (post_id) {
-      if (awaitingPosts.has(post_id)) {
-        const post = awaitingPosts.get(post_id);
-        addTokenCost(post, filter.model, tokens);
-        awaitingPosts.set(post_id, post);
-        costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
-      } else {
-        const cost = costs[post_id] || { tokens: 0, images: 0, cost: 0 };
-        addTokenCost(cost, filter.model, tokens);
-        costs[post_id] = cost;
-      }
-      saveCosts();
+    if (post_id && awaitingPosts.has(post_id)) {
+      const post = awaitingPosts.get(post_id);
+      awaitingPosts.set(post_id, post);
     }
     log(`Score ${score} for post`);
     res.json({ score, content, tokens });
@@ -1236,15 +1159,8 @@ app.post('/api/authors/:id/rewrite', async (req, res) => {
     if (post_id) {
       if (awaitingPosts.has(post_id)) {
         const post = awaitingPosts.get(post_id);
-        addTokenCost(post, author.model, tokens);
         awaitingPosts.set(post_id, post);
-        costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
-      } else {
-        const cost = costs[post_id] || { tokens: 0, images: 0, cost: 0 };
-        addTokenCost(cost, author.model, tokens);
-        costs[post_id] = cost;
       }
-      saveCosts();
     }
     res.json({ text: newText, tokens });
   } catch (e) {

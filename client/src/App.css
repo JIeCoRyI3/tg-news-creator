@@ -161,7 +161,24 @@
 }
 
 .tg-sources li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.25rem;
+}
+
+.tg-sources li img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.tg-sources li button {
+  margin-left: auto;
+  background-color: #550000;
+  border-color: #550000;
+  color: #fff;
 }
 
 .tg-input {
