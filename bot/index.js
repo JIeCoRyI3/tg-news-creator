@@ -165,17 +165,19 @@ function decodeDataUrl(dataUrl) {
 async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   try {
     let payload = url;
+    let fileOptions = undefined;
     if (typeof url === 'string') {
       if (url.startsWith('data:')) {
-        payload = { source: decodeDataUrl(url) };
+        payload = decodeDataUrl(url);
       } else if (url.startsWith('http')) {
         const resp = await axios.get(url, { responseType: 'arraybuffer' });
         const type = resp.headers['content-type'] || 'image/jpeg';
         const ext = type.split('/')[1] || 'jpg';
-        payload = { source: Buffer.from(resp.data), filename: `image.${ext}` };
+        payload = Buffer.from(resp.data);
+        fileOptions = { filename: `image.${ext}` };
       }
     }
-    await bot.sendPhoto(channel, payload, { caption, parse_mode: 'HTML', ...options });
+    await bot.sendPhoto(channel, payload, { caption, parse_mode: 'HTML', ...options }, fileOptions);
     const msg = `Sent photo to ${channel}`;
     console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
     botEvents.emit('log', { message: msg, instanceId });
