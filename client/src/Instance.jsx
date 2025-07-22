@@ -32,6 +32,8 @@ export default function Instance({ id, title, onDelete }) {
   const [selectedAuthor, setSelectedAuthor] = useState('none')
   const [imageModel, setImageModel] = useState('dall-e-3')
   const [imagePrompt, setImagePrompt] = useState('Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
+  const [imageQuality, setImageQuality] = useState('medium')
+  const [imageSize, setImageSize] = useState('1024x1024')
   const [loaded, setLoaded] = useState(false)
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
@@ -55,6 +57,8 @@ export default function Instance({ id, title, onDelete }) {
         setSelectedAuthor(data.author || 'none')
         setImageModel(data.imageModel || 'dall-e-3')
         setImagePrompt(data.imagePrompt || 'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
+        setImageQuality(data.imageQuality || 'medium')
+        setImageSize(data.imageSize || '1024x1024')
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
@@ -70,14 +74,16 @@ export default function Instance({ id, title, onDelete }) {
       filter: selectedFilter,
       author: selectedAuthor,
       imageModel,
-      imagePrompt
+      imagePrompt,
+      imageQuality,
+      imageSize
     }
     apiFetch(`/api/instances/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).catch(() => {})
-  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor, imageModel, imagePrompt])
+  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor, imageModel, imagePrompt, imageQuality, imageSize])
 
   const addTgUrl = (url) => {
     setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
@@ -317,6 +323,10 @@ export default function Instance({ id, title, onDelete }) {
           setImageModel={setImageModel}
           imagePrompt={imagePrompt}
           setImagePrompt={setImagePrompt}
+          imageQuality={imageQuality}
+          setImageQuality={setImageQuality}
+          imageSize={imageSize}
+          setImageSize={setImageSize}
         />
       ) : tab === 'filters' ? (
         <FiltersTab filters={filters} setFilters={setFilters} />
