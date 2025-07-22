@@ -633,6 +633,7 @@ app.get('/api/instances', (req, res) => {
         imageQuality = DEFAULT_IMAGE_QUALITY,
         imageSize = DEFAULT_IMAGE_SIZE,
         referenceImages = [],
+        postSuffix = DEFAULT_POST_SUFFIX,
       }) => ({
         id,
         title,
