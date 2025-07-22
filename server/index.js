@@ -67,6 +67,7 @@ const DEFAULT_IMAGE_SIZE = '1024x1024';
 const IMAGE_QUALITIES = ['low', 'medium', 'high'];
 const IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024'];
 const DALL_E2_SIZES = ['256x256', '512x512', '1024x1024'];
+const DEFAULT_POST_SUFFIX = '';
 
 const INSTANCES_FILE = path.join(__dirname, 'instances.json');
 let instances = [];
@@ -109,9 +110,11 @@ function loadInstances() {
         imagePrompt: DEFAULT_IMAGE_PROMPT,
         imageQuality: DEFAULT_IMAGE_QUALITY,
         imageSize: DEFAULT_IMAGE_SIZE,
+        postSuffix: DEFAULT_POST_SUFFIX,
         referenceImages: [],
         ...inst,
         referenceImages: Array.isArray(inst.referenceImages) ? inst.referenceImages : [],
+        postSuffix: typeof inst.postSuffix === 'string' ? inst.postSuffix : DEFAULT_POST_SUFFIX,
       }));
     }
   } catch (e) {
@@ -644,6 +647,7 @@ app.get('/api/instances', (req, res) => {
         imageQuality,
         imageSize,
         referenceImages,
+        postSuffix,
       }),
     ),
   );
@@ -666,7 +670,8 @@ app.post('/api/instances', (req, res) => {
     imagePrompt: DEFAULT_IMAGE_PROMPT,
     imageQuality: DEFAULT_IMAGE_QUALITY,
     imageSize: DEFAULT_IMAGE_SIZE,
-    referenceImages: []
+    referenceImages: [],
+    postSuffix: DEFAULT_POST_SUFFIX
   };
   instances.push(inst);
   saveInstances();

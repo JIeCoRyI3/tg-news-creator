@@ -4,7 +4,7 @@ import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
 import apiFetch from '../api.js'
 
-export default function AuthorsTab({ authors, setAuthors }) {
+export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuffix }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [model, setModel] = useState('gpt-3.5-turbo')
@@ -69,6 +69,13 @@ export default function AuthorsTab({ authors, setAuthors }) {
 
   return (
     <div className="filters-tab">
+      <div className="tg-input">
+        <input
+          value={postSuffix}
+          onChange={e => setPostSuffix(e.target.value)}
+          placeholder="Text to append to each post"
+        />
+      </div>
       <ul>
         {authors.map(a => (
           <li key={a.id}>
@@ -119,5 +126,7 @@ export default function AuthorsTab({ authors, setAuthors }) {
 
 AuthorsTab.propTypes = {
   authors: PropTypes.arrayOf(PropTypes.object).isRequired,
-  setAuthors: PropTypes.func.isRequired
+  setAuthors: PropTypes.func.isRequired,
+  postSuffix: PropTypes.string.isRequired,
+  setPostSuffix: PropTypes.func.isRequired
 }
