@@ -155,9 +155,18 @@ async function sendMessage(channel, text, options = {}, instanceId) {
   }
 }
 
+function decodeDataUrl(dataUrl) {
+  const match = /^data:(.+);base64,(.*)$/.exec(dataUrl);
+  if (!match) return null;
+  return Buffer.from(match[2], 'base64');
+}
+
 async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   try {
-    await bot.sendPhoto(channel, url, { caption, parse_mode: 'HTML', ...options });
+    const payload = typeof url === 'string' && url.startsWith('data:')
+      ? { source: decodeDataUrl(url) }
+      : url;
+    await bot.sendPhoto(channel, payload, { caption, parse_mode: 'HTML', ...options });
     const msg = `Sent photo to ${channel}`;
     console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
     botEvents.emit('log', { message: msg, instanceId });
