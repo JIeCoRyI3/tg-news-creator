@@ -34,6 +34,7 @@ export default function Instance({ id, title, onDelete }) {
   const [imagePrompt, setImagePrompt] = useState('Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
   const [imageQuality, setImageQuality] = useState('medium')
   const [imageSize, setImageSize] = useState('1024x1024')
+  const [postSuffix, setPostSuffix] = useState('')
   const [loaded, setLoaded] = useState(false)
   const postingRef = useRef(posting)
   const channelsRef = useRef(selectedChannels)
@@ -42,6 +43,7 @@ export default function Instance({ id, title, onDelete }) {
   const filtersRef = useRef(filters)
   const authorRef = useRef(selectedAuthor)
   const authorsRef = useRef(authors)
+  const postSuffixRef = useRef(postSuffix)
   const [, forceTick] = useState(0)
   const controlsDisabled = !selectedChannels.length || selectedFilter === 'none' || selectedAuthor === 'none'
 
@@ -59,6 +61,7 @@ export default function Instance({ id, title, onDelete }) {
         setImagePrompt(data.imagePrompt || 'Create an image for a Telegram post based on the following text: {postText}. The image should have a stylish, minimalistic design with modern, fashionable gradients.')
         setImageQuality(data.imageQuality || 'medium')
         setImageSize(data.imageSize || '1024x1024')
+        setPostSuffix(data.postSuffix || '')
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
@@ -76,14 +79,15 @@ export default function Instance({ id, title, onDelete }) {
       imageModel,
       imagePrompt,
       imageQuality,
-      imageSize
+      imageSize,
+      postSuffix
     }
     apiFetch(`/api/instances/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).catch(() => {})
-  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor, imageModel, imagePrompt, imageQuality, imageSize])
+  }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor, imageModel, imagePrompt, imageQuality, imageSize, postSuffix])
 
   const addTgUrl = (url) => {
     setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
@@ -121,6 +125,10 @@ export default function Instance({ id, title, onDelete }) {
     authorsRef.current = authors
   }, [authors])
 
+  useEffect(() => {
+    postSuffixRef.current = postSuffix
+  }, [postSuffix])
+
   const connect = (endpoint, params) => {
     if (es) return
     const qs = new URLSearchParams(params)
@@ -139,11 +147,14 @@ export default function Instance({ id, title, onDelete }) {
           : `*${item.title}*\n${item.url}`
         const media = item.media?.find(m => m.endsWith('.mp4')) || item.media?.[0]
         const send = (text) => {
+          const finalText = postSuffixRef.current
+            ? `${text}\n${postSuffixRef.current}`
+            : text
           channelsRef.current.forEach(ch => {
             apiFetch('/api/post', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ channel: ch, text, media, instanceId: id, id: postId })
+              body: JSON.stringify({ channel: ch, text: finalText, media, instanceId: id, id: postId })
             }).catch(() => {})
           })
         }
@@ -331,7 +342,12 @@ export default function Instance({ id, title, onDelete }) {
       ) : tab === 'filters' ? (
         <FiltersTab filters={filters} setFilters={setFilters} />
       ) : (
-        <AuthorsTab authors={authors} setAuthors={setAuthors} />
+        <AuthorsTab
+          authors={authors}
+          setAuthors={setAuthors}
+          postSuffix={postSuffix}
+          setPostSuffix={setPostSuffix}
+        />
       )}
       {tab === 'tg' && (
         <>
