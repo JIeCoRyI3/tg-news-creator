@@ -872,6 +872,9 @@ app.post('/api/post', async (req, res) => {
     const { channel, text, media, instanceId } = req.body;
     if (!channel) return res.status(400).json({ error: 'channel required' });
     if (!text && !media) return res.status(400).json({ error: 'text or media required' });
+    if (activeApprovers.size === 0) {
+      return res.status(400).json({ error: 'no active approvers' });
+    }
     const inst = instances.find(i => i.id === instanceId);
     const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
     const targets = [];

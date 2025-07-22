@@ -58,6 +58,10 @@ Send messages or media to a Telegram channel. The endpoint accepts a JSON body:
 }
 ```
 
+At least one approver must have started `/start_approving`.
+Otherwise the endpoint responds with `{ "error": "no active approvers" }` and
+nothing is posted.
+
 When `media` is provided, the server sends a photo or video to the channel. If
 the URL ends with `.mp4` a video is sent, otherwise a photo. When only `text` is
 present it falls back to a regular message.
