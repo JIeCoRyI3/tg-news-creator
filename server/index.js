@@ -90,6 +90,48 @@ let approvers = [];
 const awaitingPosts = new Map();
 const activeApprovers = new Map(); // id -> username
 
+// Track token and image costs per post
+const TOKEN_PRICES = {
+  'gpt-4o': 0.005,
+  'gpt-4': 0.03,
+  'gpt-4-turbo': 0.01,
+  'gpt-3.5-turbo': 0.0005,
+  default: 0.005
+};
+const IMAGE_PRICES = {
+  'dall-e-3': 0.04,
+  'dall-e-2': 0.02,
+  'gpt-image-1': 0.01,
+  'gpt-4o': 0.01,
+  default: 0.02
+};
+
+const COSTS_FILE = path.join(__dirname, 'costs.json');
+let costs = {};
+
+function tokenPrice(model) {
+  for (const key of Object.keys(TOKEN_PRICES)) {
+    if (model.startsWith(key)) return TOKEN_PRICES[key];
+  }
+  return TOKEN_PRICES.default;
+}
+
+function imagePrice(model) {
+  return IMAGE_PRICES[model] || IMAGE_PRICES.default;
+}
+
+function addTokenCost(post, model, tokens) {
+  const price = tokens * tokenPrice(model) / 1000;
+  post.tokens = (post.tokens || 0) + tokens;
+  post.cost = (post.cost || 0) + price;
+}
+
+function addImageCost(post, model) {
+  const price = imagePrice(model);
+  post.images = (post.images || 0) + 1;
+  post.cost = (post.cost || 0) + price;
+}
+
 const USERS_FILE = path.join(__dirname, 'users.json');
 let users = [];
 
@@ -231,11 +273,30 @@ function saveUsers() {
   }
 }
 
+function loadCosts() {
+  try {
+    const data = fs.readFileSync(COSTS_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (parsed && typeof parsed === 'object') costs = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load costs', e);
+  }
+}
+
+function saveCosts() {
+  try {
+    fs.writeFileSync(COSTS_FILE, JSON.stringify(costs, null, 2));
+  } catch (e) {
+    console.error('Failed to save costs', e);
+  }
+}
+
 loadTgSources();
 loadFilters();
 loadAuthors();
 loadInstances();
 loadUsers();
+loadCosts();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
@@ -246,6 +307,8 @@ botEvents.on('callback', async (query) => {
     const post = awaitingPosts.get(id);
     if (post) {
       awaitingPosts.delete(id);
+      costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
+      saveCosts();
       try {
         await postToChannel(post);
         await answerCallback(query.id, 'Approved');
@@ -266,7 +329,7 @@ botEvents.on('callback', async (query) => {
         const inst = instances.find(i => i.id === post.instanceId);
         const model = inst?.imageModel || DEFAULT_IMAGE_MODEL;
         const basePrompt = inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
-        const url = await generateImage(model, basePrompt, post.text, inst);
+        const url = await generateImage(model, basePrompt, post.text, inst, post);
         log(`Generated image for post ${id}`, post.instanceId);
         post.media = url;
         awaitingPosts.set(id, post);
@@ -283,8 +346,11 @@ botEvents.on('callback', async (query) => {
     }
     return;
   } else if (action === 'cancel') {
-    if (awaitingPosts.has(id)) {
+    const post = awaitingPosts.get(id);
+    if (post) {
       awaitingPosts.delete(id);
+      costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
+      saveCosts();
       answerCallback(query.id, 'Cancelled').catch(() => {});
     }
   }
@@ -334,7 +400,7 @@ async function loadReferenceImage(name) {
   return toFile(fs.createReadStream(filePath), name + ext, { type: mime });
 }
 
-async function generateImage(model, basePrompt, text, inst) {
+async function generateImage(model, basePrompt, text, inst, post) {
   const prompt = basePrompt.split('{postText}').join(text);
   const refs = Array.isArray(inst?.referenceImages) ? inst.referenceImages : [];
   if ((model === 'gpt-image-1' || model === 'gpt-4o') && refs.length) {
@@ -342,6 +408,12 @@ async function generateImage(model, basePrompt, text, inst) {
     const img = await openai.images.edit({ model, prompt, image: images });
     const first = img.data?.[0];
     if (!first) return null;
+    if (post) {
+      addImageCost(post, model);
+      awaitingPosts.set(post.id, post);
+      costs[post.id] = { tokens: post.tokens || 0, images: post.images, cost: post.cost };
+      saveCosts();
+    }
     if (first.url) return first.url;
     if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
     return null;
@@ -349,6 +421,12 @@ async function generateImage(model, basePrompt, text, inst) {
   const img = await openai.images.generate({ model, prompt });
   const first = img.data?.[0];
   if (!first) return null;
+  if (post) {
+    addImageCost(post, model);
+    awaitingPosts.set(post.id, post);
+    costs[post.id] = { tokens: post.tokens || 0, images: post.images, cost: post.cost };
+    saveCosts();
+  }
   if (first.url) return first.url;
   if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
   return null;
@@ -728,6 +806,8 @@ app.post('/api/awaiting/:id/approve', async (req, res) => {
   const post = awaitingPosts.get(id);
   if (!post) return res.status(404).json({ error: 'not found' });
   awaitingPosts.delete(id);
+  costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
+  saveCosts();
   try {
     await postToChannel(post);
     res.json({ ok: true });
@@ -747,7 +827,7 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     const inst = instances.find(i => i.id === post.instanceId);
     const model = body.model || inst?.imageModel || DEFAULT_IMAGE_MODEL;
     const basePrompt = body.prompt || inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
-    const url = await generateImage(model, basePrompt, post.text, inst);
+    const url = await generateImage(model, basePrompt, post.text, inst, post);
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;
     awaitingPosts.set(id, post);
@@ -767,7 +847,12 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
 app.post('/api/awaiting/:id/cancel', (req, res) => {
   const { id } = req.params;
   if (!awaitingPosts.has(id)) return res.status(404).json({ error: 'not found' });
+  const post = awaitingPosts.get(id);
   awaitingPosts.delete(id);
+  if (post) {
+    costs[id] = { tokens: post.tokens || 0, images: post.images || 0, cost: post.cost || 0 };
+    saveCosts();
+  }
   res.json({ ok: true });
 });
 
@@ -795,7 +880,7 @@ app.post('/api/post', async (req, res) => {
     }
     if (targets.length) {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const info = { id, channel, text, media, instanceId };
+      const info = { id, channel, text, media, instanceId, tokens: 0, images: 0, cost: 0 };
       awaitingPosts.set(id, info);
       for (const uid of targets) {
         sendApprovalRequest(uid, info).catch(() => {});
@@ -974,7 +1059,7 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     const { id } = req.params;
     const filter = filters.find(f => f.id === id);
     if (!filter) return res.status(404).json({ error: 'not found' });
-    const { text } = req.body;
+    const { text, post_id } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     log(`Filtering post with ${filter.title}`);
@@ -988,8 +1073,16 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
     const content = resp.choices[0].message.content;
     const m = content.match(/(\d+(?:\.\d+)?)/);
     const score = m ? parseFloat(m[1]) : 0;
+    const tokens = resp.usage?.total_tokens || 0;
+    if (post_id && awaitingPosts.has(post_id)) {
+      const post = awaitingPosts.get(post_id);
+      addTokenCost(post, filter.model, tokens);
+      awaitingPosts.set(post_id, post);
+      costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
+      saveCosts();
+    }
     log(`Score ${score} for post`);
-    res.json({ score, content });
+    res.json({ score, content, tokens });
   } catch (e) {
     const msg = e.message;
     console.error('Failed to evaluate filter', msg);
@@ -1060,7 +1153,7 @@ app.post('/api/authors/:id/rewrite', async (req, res) => {
     const { id } = req.params;
     const author = authors.find(a => a.id === id);
     if (!author) return res.status(404).json({ error: 'not found' });
-    const { text } = req.body;
+    const { text, post_id } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
     log(`Authoring post with ${author.title}`);
@@ -1072,7 +1165,15 @@ app.post('/api/authors/:id/rewrite', async (req, res) => {
       ]
     });
     const newText = resp.choices[0].message.content;
-    res.json({ text: newText });
+    const tokens = resp.usage?.total_tokens || 0;
+    if (post_id && awaitingPosts.has(post_id)) {
+      const post = awaitingPosts.get(post_id);
+      addTokenCost(post, author.model, tokens);
+      awaitingPosts.set(post_id, post);
+      costs[post_id] = { tokens: post.tokens, images: post.images || 0, cost: post.cost };
+      saveCosts();
+    }
+    res.json({ text: newText, tokens });
   } catch (e) {
     const msg = e.message;
     console.error('Failed to rewrite text', msg);
