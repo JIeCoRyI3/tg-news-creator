@@ -7,6 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../server/.env') });
 const TelegramBot = require('node-telegram-bot-api');
 const { EventEmitter } = require('events');
+const axios = require('axios');
 
 const botEvents = new EventEmitter();
 
@@ -163,9 +164,17 @@ function decodeDataUrl(dataUrl) {
 
 async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   try {
-    const payload = typeof url === 'string' && url.startsWith('data:')
-      ? { source: decodeDataUrl(url) }
-      : url;
+    let payload = url;
+    if (typeof url === 'string') {
+      if (url.startsWith('data:')) {
+        payload = { source: decodeDataUrl(url) };
+      } else if (url.startsWith('http')) {
+        const resp = await axios.get(url, { responseType: 'arraybuffer' });
+        const type = resp.headers['content-type'] || 'image/jpeg';
+        const ext = type.split('/')[1] || 'jpg';
+        payload = { source: Buffer.from(resp.data), filename: `image.${ext}` };
+      }
+    }
     await bot.sendPhoto(channel, payload, { caption, parse_mode: 'HTML', ...options });
     const msg = `Sent photo to ${channel}`;
     console.log(instanceId ? `[${instanceId}] ${msg}` : msg);
