@@ -70,10 +70,11 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
   return (
     <div className="filters-tab">
       <div className="tg-input">
-        <input
+        <textarea
           value={postSuffix}
           onChange={e => setPostSuffix(e.target.value)}
-          placeholder="Text to append to each post"
+          placeholder="HTML snippet to append to each post"
+          rows={2}
         />
       </div>
       <ul>
