@@ -1,0 +1,542 @@
+/* Modern Dashboard custom styles */
+
+/* Overall layout uses a flexible sidebar and content area */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  /* Apply a subtle animated gradient background for visual interest */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #111827 100%);
+  animation: gradientBackground 20s ease infinite;
+  background-size: 400% 400%;
+  color: #e5e7eb;
+  font-family: 'Roboto', sans-serif;
+}
+
+/* Animated gradient to give the dashboard a dynamic feel */
+@keyframes gradientBackground {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 240px;
+  background-color: #1f2937;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-right: 1px solid #374151;
+}
+
+/* Branding/header inside the sidebar */
+.sidebar-header {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 2rem;
+}
+
+/* Navigation menu inside the sidebar */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.sidebar-nav button {
+  all: unset;
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  color: #9ca3af;
+  transition: background-color 0.2s, color 0.2s;
+}
+.sidebar-nav button.active,
+.sidebar-nav button:hover {
+  background-color: #374151;
+  color: #f3f4f6;
+}
+
+/* Icons inside navigation buttons */
+.sidebar-nav button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.nav-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-block;
+}
+
+/* Icons inside standard buttons */
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  display: inline-block;
+}
+
+/* Main content area */
+.content-area {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+}
+
+/* Dashboard header containing the title and add-instance controls */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.dashboard-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+}
+.dashboard-add-instance {
+  display: flex;
+  gap: 0.5rem;
+}
+.dashboard-add-instance input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  background-color: #111827;
+  color: #f3f4f6;
+  outline: none;
+  min-width: 200px;
+}
+.dashboard-add-instance input::placeholder {
+  color: #6b7280;
+}
+
+/* Grid for instance cards */
+/*
+ * Display instances in a vertical list to maximise the horizontal space
+ * available for the many controls contained within each instance.  Cards
+ * are stacked with a uniform gap.
+ */
+.instances-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.instance-card {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.instance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+.instance-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.instance-card-header h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin: 0;
+  color: #ffffff;
+}
+
+/* Login page styling */
+.login-page,
+.users-page {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+
+  /* Apply the same animated gradient background as the dashboard on the login page */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #111827 100%);
+  animation: gradientBackground 20s ease infinite;
+  background-size: 400% 400%;
+}
+.login-container {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.login-form h2 {
+  margin-bottom: 0.5rem;
+  text-align: center;
+  color: #ffffff;
+}
+.login-form input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #374151;
+  background-color: #111827;
+  color: #f3f4f6;
+}
+.login-form input::placeholder {
+  color: #6b7280;
+}
+
+/* Center the login icon and title */
+/*
+ * Align the login form title horizontally so that the key icon and
+ * “Sign in” label sit next to each other.  The flexbox settings
+ * centre the content and provide a small gap between the icon and
+ * text.  The colours and sizing ensure the header stands out on the
+ * dark form.
+ */
+.login-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: #f3f4f6;
+}
+.login-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-block;
+}
+
+/* Users page styling */
+.users-page h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+.add-user-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.add-user-form input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #374151;
+  background-color: #111827;
+  color: #f3f4f6;
+  flex: 1;
+  min-width: 150px;
+}
+.users-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+}
+.user-item span {
+  font-size: 1rem;
+  color: #f3f4f6;
+}
+
+/* Apply accent color to all checkboxes and radio buttons across the app */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #6366f1;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/*
+ * Inputs, selects, checkboxes and radio buttons inside instance cards.  These
+ * styles unify the appearance of form controls across the dashboard.  They
+ * rely on the parent `.instance-card` to avoid affecting other pages.
+ */
+.instance-card select,
+.instance-card input[type="text"],
+.instance-card input[type="url"],
+.instance-card input[type="number"],
+.instance-card input[type="password"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  background-color: #111827;
+  color: #f3f4f6;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+/* Style textarea controls inside instance cards similarly to inputs */
+.instance-card textarea {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  background-color: #111827;
+  color: #f3f4f6;
+  font-size: 0.875rem;
+  outline: none;
+  resize: vertical;
+}
+.instance-card textarea::placeholder {
+  color: #6b7280;
+}
+
+/* Style file inputs so they blend with the dark theme.  Use a custom
+ * button for the file selector via the ::file-selector-button pseudo
+ * element.  This styling applies only inside instance cards to avoid
+ * affecting other file inputs (if any). */
+.instance-card input[type="file"] {
+  width: 100%;
+  color: #9ca3af;
+  background-color: #111827;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  padding: 0.4rem;
+  font-size: 0.875rem;
+}
+.instance-card input[type="file"]::file-selector-button {
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+  border: none;
+  color: #fff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+/* Adjust buttons inside the admin tab to align evenly and wrap nicely. */
+.admin-tab .button-row,
+.admin-tab .button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-tab button {
+  margin: 0;
+}
+.instance-card input::placeholder {
+  color: #6b7280;
+}
+.instance-card select {
+  /* Remove default styling and add a custom arrow */
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg fill='none' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5' stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+.instance-card input[type="checkbox"],
+.instance-card input[type="radio"] {
+  accent-color: #6366f1;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/* Tab buttons inside instance cards */
+.instance-card .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.instance-card .tabs button {
+  all: unset;
+  cursor: pointer;
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  color: #f3f4f6;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.instance-card .tabs button.active,
+.instance-card .tabs button:hover {
+  background-color: #374151;
+  border-color: #6366f1;
+  color: #ffffff;
+}
+
+/* Layout for various control groups inside instance cards */
+.instance-card .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.instance-card .controls button {
+  margin: 0;
+}
+.instance-card .channel-select,
+.instance-card .filter-select,
+.instance-card .author-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/*
+ * Style log containers used in the application.  Logs should be
+ * scrollable with a card-like appearance.
+ */
+.logs {
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  color: #d1d5db;
+}
+
+/*
+ * Styling for administration/author/configuration tabs that present
+ * multi‑line text, inputs and buttons.  These rules give the modal
+ * panels a consistent card appearance.
+ */
+.admin-tab {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-top: 1rem;
+  color: #f3f4f6;
+}
+.admin-tab textarea,
+.admin-tab input,
+.admin-tab select {
+  background-color: #111827;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  color: #f3f4f6;
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+.admin-tab button {
+  /* remove right margin so button spacing is controlled by flex containers */
+  margin: 0;
+}
+
+/*
+ * Button styles.  Buttons are broken into variants so that destructive
+ * actions (like deleting items) can be visually distinguished.  Use
+ * `.shadcn-btn-primary` for the default purple gradient and
+ * `.shadcn-btn-danger` for red tones.
+ */
+.shadcn-btn-primary,
+.shadcn-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  color: #ffffff;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.shadcn-btn-primary {
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+}
+.shadcn-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
+}
+.shadcn-btn-danger {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+}
+.shadcn-btn-danger:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.4);
+}
+
+/*
+ * Modal styling overrides to align modals with the dark dashboard theme.
+ * These rules target the default modal classes used in the project
+ * (`modal-backdrop`, `modal` and `modal-actions`).  They apply a
+ * darker backdrop with blur, centre the modal, and animate its
+ * appearance.  Action buttons inside modals are laid out with flex.
+ */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  max-width: 600px;
+  width: 90%;
+  color: #f3f4f6;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.shadcn-btn-primary:disabled,
+.shadcn-btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
