@@ -95,10 +95,14 @@ const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
 let approvers = [];
 const awaitingPosts = new Map();
 const activeApprovers = new Map(); // id -> username
+const awaitingEmojiPacks = new Set();
 
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 let users = [];
+
+const EMOJIS_FILE = path.join(__dirname, 'emojis.json');
+let emojis = {};
 
 function loadInstances() {
   try {
@@ -242,12 +246,31 @@ function saveUsers() {
   }
 }
 
+function loadEmojis() {
+  try {
+    const data = fs.readFileSync(EMOJIS_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (parsed && typeof parsed === 'object') emojis = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error('Failed to load emojis', e);
+  }
+}
+
+function saveEmojis() {
+  try {
+    fs.writeFileSync(EMOJIS_FILE, JSON.stringify(emojis, null, 2));
+  } catch (e) {
+    console.error('Failed to save emojis', e);
+  }
+}
+
 
 loadTgSources();
 loadFilters();
 loadAuthors();
 loadInstances();
 loadUsers();
+loadEmojis();
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
@@ -285,7 +308,8 @@ botEvents.on('callback', async (query) => {
         const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
         for (const [uid, name] of activeApprovers.entries()) {
           if (approverList.includes(name)) {
-            sendApprovalRequest(uid, post).catch(() => {});
+            const decorated = { ...post, text: applyCustomEmojis(post.text || '') };
+            sendApprovalRequest(uid, decorated).catch(() => {});
           }
         }
       } catch (e) {
@@ -315,6 +339,33 @@ botEvents.on('start_approving', (msg) => {
   } else {
     sendMessage(id, 'You are not an approver.', {}, undefined).catch(() => {});
   }
+});
+
+botEvents.on('add_emojis', (msg) => {
+  const id = String(msg.from.id);
+  const username = msg.from.username ? msg.from.username.toLowerCase() : '';
+  if (approvers.includes(username)) {
+    awaitingEmojiPacks.add(id);
+    sendMessage(id, 'Send emoji pack', {}, undefined).catch(() => {});
+  } else {
+    sendMessage(id, 'You are not an approver.', {}, undefined).catch(() => {});
+  }
+});
+
+botEvents.on('message', (msg) => {
+  const id = String(msg.from.id);
+  if (!awaitingEmojiPacks.has(id) || !msg.text) return;
+  awaitingEmojiPacks.delete(id);
+  const map = parseEmojiPack(msg);
+  let added = 0;
+  for (const [emoji, emojiId] of Object.entries(map)) {
+    if (emoji && emojiId) {
+      emojis[emoji] = emojiId;
+      added++;
+    }
+  }
+  if (added) saveEmojis();
+  sendMessage(id, added ? `Added ${added} custom emojis.` : 'No emojis added.', {}, undefined).catch(() => {});
 });
 
 
@@ -379,6 +430,39 @@ async function generateImage(model, basePrompt, text, inst, post) {
   if (first.url) return first.url;
   if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
   return null;
+}
+
+function applyCustomEmojis(text) {
+  if (!text) return text;
+  let result = String(text);
+  for (const [emoji, id] of Object.entries(emojis)) {
+    if (!emoji || !id) continue;
+    const escaped = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'g');
+    result = result.replace(re, `<tg-emoji emoji-id="${id}">${emoji}</tg-emoji>`);
+  }
+  return result;
+}
+
+function parseEmojiPack(msg) {
+  const text = msg.text || '';
+  const entities = Array.isArray(msg.entities) ? msg.entities : [];
+  const result = {};
+  const lines = text.split('\n');
+  let offset = 0;
+  for (const line of lines) {
+    const dash = line.indexOf('-');
+    if (dash === -1) { offset += line.length + 1; continue; }
+    const regular = line.slice(0, dash).trim();
+    if (!regular) { offset += line.length + 1; continue; }
+    const startSearch = offset + dash + 1;
+    const entity = entities.find(e => e.type === 'custom_emoji' && e.offset >= startSearch && e.offset < offset + line.length);
+    if (entity) {
+      result[regular] = entity.custom_emoji_id;
+    }
+    offset += line.length + 1;
+  }
+  return result;
 }
 app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {
@@ -466,6 +550,28 @@ app.delete('/api/users/:login', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   users.splice(idx, 1);
   saveUsers();
+  res.json({ ok: true });
+});
+
+app.get('/api/emojis', (req, res) => {
+  res.json(emojis);
+});
+
+app.post('/api/emojis', (req, res) => {
+  const { emoji, id } = req.body || {};
+  if (!emoji || !id) return res.status(400).json({ error: 'emoji and id required' });
+  emojis[emoji] = id;
+  saveEmojis();
+  res.json({ ok: true });
+});
+
+app.delete('/api/emojis', (req, res) => {
+  const { emoji } = req.query;
+  if (!emoji) return res.status(400).json({ error: 'emoji required' });
+  if (emojis[emoji]) {
+    delete emojis[emoji];
+    saveEmojis();
+  }
   res.json({ ok: true });
 });
 
@@ -820,7 +926,8 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
     for (const [uid, name] of activeApprovers.entries()) {
       if (approverList.includes(name)) {
-        sendApprovalRequest(uid, post).catch(() => {});
+        const decorated = { ...post, text: applyCustomEmojis(post.text || '') };
+        sendApprovalRequest(uid, decorated).catch(() => {});
       }
     }
     res.json({ ok: true });
@@ -839,14 +946,15 @@ app.post('/api/awaiting/:id/cancel', (req, res) => {
 });
 
 function postToChannel({ channel, text, media, instanceId }) {
-  if (!media && (!text || !text.trim())) {
+  const processed = applyCustomEmojis(text || '');
+  if (!media && (!processed || !processed.trim())) {
     return Promise.reject(new Error('text or media required'));
   }
   return media
     ? (media.toLowerCase().endsWith('.mp4')
-        ? sendVideo(channel, media, text, {}, instanceId)
-        : sendPhoto(channel, media, text, {}, instanceId))
-    : sendMessage(channel, text, {}, instanceId);
+        ? sendVideo(channel, media, processed, {}, instanceId)
+        : sendPhoto(channel, media, processed, {}, instanceId))
+    : sendMessage(channel, processed, {}, instanceId);
 }
 
 app.post('/api/post', async (req, res) => {
@@ -868,7 +976,8 @@ app.post('/api/post', async (req, res) => {
       const info = { id, channel, text, media, instanceId };
       awaitingPosts.set(id, info);
       for (const uid of targets) {
-        sendApprovalRequest(uid, info).catch(() => {});
+        const decorated = { ...info, text: applyCustomEmojis(info.text || '') };
+        sendApprovalRequest(uid, decorated).catch(() => {});
       }
       log(`Queued post ${id} for approval`, instanceId);
       res.json({ ok: true, awaiting: true, id });

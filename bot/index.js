@@ -229,6 +229,14 @@ bot.onText(/\/start_approving/i, (msg) => {
   botEvents.emit('start_approving', msg);
 });
 
+bot.onText(/\/add_emojis/i, (msg) => {
+  botEvents.emit('add_emojis', msg);
+});
+
+bot.on('message', (msg) => {
+  botEvents.emit('message', msg);
+});
+
 function answerCallback(id, text) {
   return bot.answerCallbackQuery(id, { text });
 }
@@ -254,6 +262,7 @@ module.exports = {
 (async () => {
   await loadChannels();
   await bot.setMyCommands([
-    { command: 'start_approving', description: 'Receive approval requests' }
+    { command: 'start_approving', description: 'Receive approval requests' },
+    { command: 'add_emojis', description: 'Upload custom emojis' }
   ]);
 })();
