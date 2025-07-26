@@ -9,8 +9,7 @@ import {
   faHome,
   faUsers,
   faRightFromBracket,
-  faPlus,
-  faTrash
+  faPlus
 } from './icons.js'
 import Login from './Login.jsx'
 import './App.css'
@@ -36,10 +35,17 @@ export default function App() {
    * to null.  Successful authentication stores the user object in state.
    */
   const loadUser = () => {
+    console.log('Fetching /api/me')
     apiFetch('/api/me')
       .then(r => (r.ok ? r.json() : null))
-      .then(data => setUser(data))
-      .catch(() => setUser(null))
+      .then(data => {
+        console.log('Current user', data)
+        setUser(data)
+      })
+      .catch(err => {
+        console.log('Failed loading user', err)
+        setUser(null)
+      })
   }
 
   // On mount, attempt to restore a session from localStorage.
@@ -48,6 +54,10 @@ export default function App() {
       loadUser()
     }
   }, [])
+
+  useEffect(() => {
+    console.log('User state changed', user)
+  }, [user])
 
   // Whenever the user changes, (re-)load the list of instances.
   useEffect(() => {
@@ -62,7 +72,7 @@ export default function App() {
    * Create a new instance on the backend and update local state.  Blank titles
    * are ignored.  After creation, the input field is cleared.
    */
-  const addInstance = () => {
+  const add = () => {
     const t = title.trim()
     if (!t) return
     apiFetch('/api/instances', {
@@ -89,14 +99,17 @@ export default function App() {
    * out the user state is set to null which triggers the login page.
    */
   const logout = () => {
+    console.log('Logging out')
     apiFetch('/api/logout').finally(() => {
       localStorage.removeItem('access-token')
       setUser(null)
+      console.log('Logged out')
     })
   }
 
   // Render the login page if there is no authenticated user
   if (!user) {
+    console.log('Displaying login page')
     return (
       <div className="login-page">
         <Login onLogin={loadUser} />
@@ -142,7 +155,7 @@ export default function App() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Instance title"
                 />
-                <Button onClick={addInstance}>
+                <Button onClick={add}>
                   <Icon iconDef={faPlus} className="btn-icon" />
                   <span>Add Instance</span>
                 </Button>
