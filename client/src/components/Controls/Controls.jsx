@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
+import Button from '../ui/Button.jsx'
 
 export default function Controls({ startGet, startPost, stop, startLabel = 'Start Getting', disabled = false }) {
   return (

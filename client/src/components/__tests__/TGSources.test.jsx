@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import TGSources from '../TGSources.jsx'
+import TGSources from '../TGSources'
 import apiFetch from '../../api.js'
 
 vi.mock('../../api.js', () => ({

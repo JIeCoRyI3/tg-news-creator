@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import ChannelSelect from '../ChannelSelect.jsx'
+import ChannelSelect from '../ChannelSelect'
 
 describe('ChannelSelect', () => {
   const channels = [
