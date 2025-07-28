@@ -6,6 +6,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const db = require('../server/db');
 const dotenv = require('dotenv');
 // Load env from project root and server directory so the bot works
 // regardless of the current working directory
@@ -22,7 +23,7 @@ if (!token) {
   throw new Error('BOT_TOKEN is not defined');
 }
 
-const ADMIN_FILE = path.join(__dirname, '../server/admin-channels.json');
+const ADMIN_USER = 'root';
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -57,8 +58,7 @@ async function resolveLink(link) {
 
 async function loadChannels() {
   try {
-    const data = fs.readFileSync(ADMIN_FILE, 'utf8');
-    const parsed = JSON.parse(data);
+    const parsed = db.getData(ADMIN_USER, 'adminChannels');
     if (Array.isArray(parsed)) {
       for (const link of parsed) {
         const res = await resolveLink(link);
@@ -92,7 +92,7 @@ async function loadChannels() {
       }
     }
   } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load admin channels', e);
+    console.error('Failed to load admin channels', e);
   }
 }
 
@@ -106,7 +106,7 @@ function persistChannels() {
     }
   }
   try {
-    fs.writeFileSync(ADMIN_FILE, JSON.stringify(obj, null, 2));
+    db.setData(ADMIN_USER, 'adminChannels', obj);
   } catch (e) {
     console.error('Failed to save admin channels', e);
   }

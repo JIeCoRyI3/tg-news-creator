@@ -19,6 +19,7 @@ const { marked } = require('marked');
 const { telegram_scraper } = require('telegram-scraper');
 const fs = require('fs');
 const multer = require('multer');
+const db = require('./db');
 let listChannels,
     listInstanceChannels,
     addChannel,
@@ -75,8 +76,31 @@ const IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024'];
 const DALL_E2_SIZES = ['256x256', '512x512', '1024x1024'];
 const DEFAULT_POST_SUFFIX = '';
 
-const INSTANCES_FILE = path.join(__dirname, 'instances.json');
-let instances = [];
+const userCache = new Map(); // login -> {instances, tgSources, filters, authors, emojis, approvers}
+const allApprovers = new Set();
+
+function updateAllApprovers() {
+  allApprovers.clear();
+  for (const store of userCache.values()) {
+    for (const a of store.approvers) allApprovers.add(a);
+  }
+}
+
+function getStore(login) {
+  if (!userCache.has(login)) {
+    userCache.set(login, {
+      instances: db.getData(login, 'instances') || [],
+      tgSources: db.getData(login, 'tgSources') || [],
+      filters: db.getData(login, 'filters') || [],
+      authors: db.getData(login, 'authors') || [],
+      emojis: db.getData(login, 'emojis') || {},
+      adminChannels: db.getData(login, 'adminChannels') || {},
+      approvers: []
+    });
+    computeApprovers(login);
+  }
+  return userCache.get(login);
+}
 
 // Keep track of posts we've already scraped to avoid logging duplicates
 const scrapedPostUrls = new Set();
@@ -87,68 +111,43 @@ function log(message, instanceId) {
   botEvents.emit('log', { message, instanceId });
 }
 
-const TG_SOURCES_FILE = path.join(__dirname, 'tg-sources.json');
-let tgSources = [];
-
-const FILTERS_FILE = path.join(__dirname, 'filters.json');
-let filters = [];
-
-const AUTHORS_FILE = path.join(__dirname, 'authors.json');
-let authors = [];
-
-const APPROVERS_FILE = path.join(__dirname, 'approvers.json');
-// list of allowed approver usernames in lower case
-let approvers = [];
 const awaitingPosts = new Map();
 const activeApprovers = new Map(); // id -> username
-const awaitingEmojiPacks = new Set();
-
-
-const USERS_FILE = path.join(__dirname, 'users.json');
+const awaitingEmojiPacks = new Map(); // tg id -> [logins]
 let users = [];
-
-const EMOJIS_FILE = path.join(__dirname, 'emojis.json');
-let emojis = {};
 
 /**
  * Load instance configuration from disk into memory.  Defaults are
  * applied to each instance to avoid undefined settings.  The list of
  * approver usernames is recomputed after loading.
  */
-function loadInstances() {
-  try {
-    const data = fs.readFileSync(INSTANCES_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) {
-      instances = parsed.map(inst => ({
-        imageModel: DEFAULT_IMAGE_MODEL,
-        imagePrompt: DEFAULT_IMAGE_PROMPT,
-        imageQuality: DEFAULT_IMAGE_QUALITY,
-        imageSize: DEFAULT_IMAGE_SIZE,
-        postSuffix: DEFAULT_POST_SUFFIX,
-        referenceImages: [],
-        ...inst,
-        referenceImages: Array.isArray(inst.referenceImages) ? inst.referenceImages : [],
-        postSuffix: typeof inst.postSuffix === 'string' ? inst.postSuffix : DEFAULT_POST_SUFFIX,
-      }));
-    }
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load instances', e);
+function loadInstances(login) {
+  const store = getStore(login);
+  const parsed = db.getData(login, 'instances');
+  if (Array.isArray(parsed)) {
+    store.instances = parsed.map(inst => ({
+      imageModel: DEFAULT_IMAGE_MODEL,
+      imagePrompt: DEFAULT_IMAGE_PROMPT,
+      imageQuality: DEFAULT_IMAGE_QUALITY,
+      imageSize: DEFAULT_IMAGE_SIZE,
+      postSuffix: DEFAULT_POST_SUFFIX,
+      referenceImages: [],
+      ...inst,
+      referenceImages: Array.isArray(inst.referenceImages) ? inst.referenceImages : [],
+      postSuffix: typeof inst.postSuffix === 'string' ? inst.postSuffix : DEFAULT_POST_SUFFIX,
+    }));
   }
-  computeApprovers();
+  computeApprovers(login);
 }
 
 /**
  * Persist the current instances array to disk and update the
  * aggregated list of approver usernames.
  */
-function saveInstances() {
-  try {
-    fs.writeFileSync(INSTANCES_FILE, JSON.stringify(instances, null, 2));
-  } catch (e) {
-    console.error('Failed to save instances', e);
-  }
-  computeApprovers();
+function saveInstances(login) {
+  const store = getStore(login);
+  db.setData(login, 'instances', store.instances);
+  computeApprovers(login);
 }
 
 /**
@@ -156,102 +155,71 @@ function saveInstances() {
  * normalized to lower case to simplify lookups.  The resulting list is
  * persisted to disk for use by the bot.
  */
-function computeApprovers() {
+function computeApprovers(login) {
+  const store = getStore(login);
   const set = new Set();
-  for (const inst of instances) {
+  for (const inst of store.instances) {
     if (Array.isArray(inst.approvers)) {
       for (const u of inst.approvers) set.add(String(u).toLowerCase());
     }
   }
-  approvers = Array.from(set);
-  saveApprovers();
+  store.approvers = Array.from(set);
+  saveApprovers(login);
+  updateAllApprovers();
 }
 
-function loadTgSources() {
-  try {
-    const data = fs.readFileSync(TG_SOURCES_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) tgSources = parsed;
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load tg sources', e);
+function loadTgSources(login) {
+  const store = getStore(login);
+  const parsed = db.getData(login, 'tgSources');
+  if (Array.isArray(parsed)) store.tgSources = parsed;
+}
+
+function saveTgSources(login) {
+  const store = getStore(login);
+  db.setData(login, 'tgSources', store.tgSources);
+}
+
+function loadFilters(login) {
+  const store = getStore(login);
+  const parsed = db.getData(login, 'filters');
+  if (Array.isArray(parsed)) {
+    store.filters = parsed.map(f => {
+      const ms = typeof f.min_score === 'number' ? f.min_score : 7;
+      return { ...f, min_score: ms };
+    });
   }
 }
 
-function saveTgSources() {
-  try {
-    fs.writeFileSync(TG_SOURCES_FILE, JSON.stringify(tgSources, null, 2));
-  } catch (e) {
-    console.error('Failed to save tg sources', e);
-  }
+function saveFilters(login) {
+  const store = getStore(login);
+  db.setData(login, 'filters', store.filters);
 }
 
-function loadFilters() {
-  try {
-    const data = fs.readFileSync(FILTERS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) {
-      filters = parsed.map(f => {
-        const ms = typeof f.min_score === 'number' ? f.min_score : 7;
-        return { ...f, min_score: ms };
-      });
-    }
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load filters', e);
-  }
+function loadAuthors(login) {
+  const store = getStore(login);
+  const parsed = db.getData(login, 'authors');
+  if (Array.isArray(parsed)) store.authors = parsed;
 }
 
-function saveFilters() {
-  try {
-    fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2));
-  } catch (e) {
-    console.error('Failed to save filters', e);
-  }
+function saveAuthors(login) {
+  const store = getStore(login);
+  db.setData(login, 'authors', store.authors);
 }
 
-function loadAuthors() {
-  try {
-    const data = fs.readFileSync(AUTHORS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) authors = parsed;
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load authors', e);
-  }
+function loadApprovers(login) {
+  const store = getStore(login);
+  const parsed = db.getData(login, 'approvers');
+  if (Array.isArray(parsed)) store.approvers = parsed;
 }
 
-function saveAuthors() {
-  try {
-    fs.writeFileSync(AUTHORS_FILE, JSON.stringify(authors, null, 2));
-  } catch (e) {
-    console.error('Failed to save authors', e);
-  }
-}
-
-function loadApprovers() {
-  try {
-    const data = fs.readFileSync(APPROVERS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) approvers = parsed.map(u => String(u).toLowerCase());
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load approvers', e);
-  }
-}
-
-function saveApprovers() {
-  try {
-    fs.writeFileSync(APPROVERS_FILE, JSON.stringify(approvers, null, 2));
-  } catch (e) {
-    console.error('Failed to save approvers', e);
-  }
+function saveApprovers(login) {
+  const store = getStore(login);
+  db.setData(login, 'approvers', store.approvers);
 }
 
 function loadUsers() {
-  try {
-    const data = fs.readFileSync(USERS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) users = parsed;
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load users', e);
-  }
+  const rows = db.getUsers();
+  users = rows.map(r => ({ login: r.login, password: r.password }));
   if (!users.length) {
     users.push({ login: 'root', password: '1111' });
     saveUsers();
@@ -259,38 +227,36 @@ function loadUsers() {
 }
 
 function saveUsers() {
-  try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-  } catch (e) {
-    console.error('Failed to save users', e);
+  const existing = new Set(db.getUsers().map(u => u.login));
+  for (const u of users) {
+    if (!existing.has(u.login)) db.addUser(u.login, u.password);
+  }
+  for (const login of existing) {
+    if (!users.find(u => u.login === login)) db.deleteUser(login);
   }
 }
 
-function loadEmojis() {
-  try {
-    const data = fs.readFileSync(EMOJIS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    if (parsed && typeof parsed === 'object') emojis = parsed;
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('Failed to load emojis', e);
-  }
+function loadEmojis(login) {
+  const store = getStore(login);
+  const parsed = db.getData(login, 'emojis');
+  if (parsed && typeof parsed === 'object') store.emojis = parsed;
 }
 
 function saveEmojis() {
-  try {
-    fs.writeFileSync(EMOJIS_FILE, JSON.stringify(emojis, null, 2));
-  } catch (e) {
-    console.error('Failed to save emojis', e);
+  for (const [login, store] of userCache.entries()) {
+    db.setData(login, 'emojis', store.emojis);
   }
 }
 
 
-loadTgSources();
-loadFilters();
-loadAuthors();
-loadInstances();
 loadUsers();
-loadEmojis();
+for (const u of users) {
+  loadTgSources(u.login);
+  loadFilters(u.login);
+  loadAuthors(u.login);
+  loadInstances(u.login);
+  loadEmojis(u.login);
+}
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 
 botEvents.on('callback', async (query) => {
@@ -318,17 +284,18 @@ botEvents.on('callback', async (query) => {
       sendMessage(query.from.id, 'Generating image...', {}, post.instanceId).catch(() => {});
       try {
         log(`Generating image for post ${id}`, post.instanceId);
-        const inst = instances.find(i => i.id === post.instanceId);
+        const store = getStore(post.login);
+        const inst = store.instances.find(i => i.id === post.instanceId);
         const model = inst?.imageModel || DEFAULT_IMAGE_MODEL;
         const basePrompt = inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
         const url = await generateImage(model, basePrompt, post.text, inst, post);
         log(`Generated image for post ${id}`, post.instanceId);
         post.media = url;
         awaitingPosts.set(id, post);
-        const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
+        const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : Array.from(allApprovers);
         for (const [uid, name] of activeApprovers.entries()) {
           if (approverList.includes(name)) {
-            const decorated = { ...post, text: applyCustomEmojis(post.text || '') };
+            const decorated = { ...post, text: applyCustomEmojis(post.text || '', post.login) };
             sendApprovalRequest(uid, decorated).catch(() => {});
           }
         }
@@ -353,7 +320,7 @@ botEvents.on('callback', async (query) => {
 botEvents.on('start_approving', (msg) => {
   const id = String(msg.from.id);
   const username = msg.from.username ? msg.from.username.toLowerCase() : '';
-  if (approvers.includes(username)) {
+  if (allApprovers.has(username)) {
     activeApprovers.set(id, username);
     sendMessage(id, 'You will now receive approval requests.', {}, undefined).catch(() => {});
   } else {
@@ -364,8 +331,13 @@ botEvents.on('start_approving', (msg) => {
 botEvents.on('add_emojis', (msg) => {
   const id = String(msg.from.id);
   const username = msg.from.username ? msg.from.username.toLowerCase() : '';
-  if (approvers.includes(username)) {
-    awaitingEmojiPacks.add(id);
+  const logins = [];
+  for (const u of users) {
+    const store = getStore(u.login);
+    if (store.approvers.includes(username)) logins.push(u.login);
+  }
+  if (logins.length) {
+    awaitingEmojiPacks.set(id, logins);
     sendMessage(id, 'Send emoji pack', {}, undefined).catch(() => {});
   } else {
     sendMessage(id, 'You are not an approver.', {}, undefined).catch(() => {});
@@ -374,14 +346,18 @@ botEvents.on('add_emojis', (msg) => {
 
 botEvents.on('message', (msg) => {
   const id = String(msg.from.id);
-  if (!awaitingEmojiPacks.has(id) || !msg.text) return;
+  const logins = awaitingEmojiPacks.get(id);
+  if (!logins || !msg.text) return;
   awaitingEmojiPacks.delete(id);
   const map = parseEmojiPack(msg);
   let added = 0;
-  for (const [emoji, emojiId] of Object.entries(map)) {
-    if (emoji && emojiId) {
-      emojis[emoji] = emojiId;
-      added++;
+  for (const login of logins) {
+    const store = getStore(login);
+    for (const [emoji, emojiId] of Object.entries(map)) {
+      if (emoji && emojiId) {
+        store.emojis[emoji] = emojiId;
+        added++;
+      }
     }
   }
   if (added) saveEmojis();
@@ -460,10 +436,11 @@ async function generateImage(model, basePrompt, text, inst, post) {
  * @param {string} text Input text possibly containing plain emoji
  * @returns {string} Text with custom emoji HTML inserted
  */
-function applyCustomEmojis(text) {
+function applyCustomEmojis(text, login) {
   if (!text) return text;
+  const map = login ? getStore(login).emojis : {};
   let result = String(text);
-  for (const [emoji, id] of Object.entries(emojis)) {
+  for (const [emoji, id] of Object.entries(map)) {
     if (!emoji || !id) continue;
     const escaped = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(escaped, 'g');
@@ -581,21 +558,49 @@ app.post('/api/users', (req, res) => {
 });
 
 app.delete('/api/users/:login', (req, res) => {
+  if (req.user.login !== 'root') return res.status(403).json({ error: 'forbidden' });
   const idx = users.findIndex(u => u.login === req.params.login);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   users.splice(idx, 1);
-  saveUsers();
+  userCache.delete(req.params.login);
+  db.deleteUser(req.params.login);
+  res.json({ ok: true });
+});
+
+app.post('/api/import-data', (req, res) => {
+  if (req.user.login !== 'root') return res.status(403).json({ error: 'forbidden' });
+  const files = ['admin-channels.json','approvers.json','authors.json','emojis.json','filters.json','instances.json','users.json'];
+  for (const f of files) {
+    const p = path.join(__dirname, f);
+    if (!fs.existsSync(p)) continue;
+    try {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      const key = f.replace('.json','').replace(/-([a-z])/g, (_,c) => c.toUpperCase());
+      if (key === 'users') {
+        for (const u of data || []) {
+          if (!users.find(x => x.login === u.login)) users.push(u);
+        }
+        saveUsers();
+      } else {
+        db.setData('root', key, data);
+      }
+    } catch (e) {
+      console.error('Failed importing', f, e.message);
+    }
+  }
   res.json({ ok: true });
 });
 
 app.get('/api/emojis', (req, res) => {
-  res.json(emojis);
+  const store = getStore(req.user.login);
+  res.json(store.emojis);
 });
 
 app.post('/api/emojis', (req, res) => {
   const { emoji, id } = req.body || {};
   if (!emoji || !id) return res.status(400).json({ error: 'emoji and id required' });
-  emojis[emoji] = id;
+  const store = getStore(req.user.login);
+  store.emojis[emoji] = id;
   saveEmojis();
   res.json({ ok: true });
 });
@@ -603,8 +608,9 @@ app.post('/api/emojis', (req, res) => {
 app.delete('/api/emojis', (req, res) => {
   const { emoji } = req.query;
   if (!emoji) return res.status(400).json({ error: 'emoji required' });
-  if (emojis[emoji]) {
-    delete emojis[emoji];
+  const store = getStore(req.user.login);
+  if (store.emojis[emoji]) {
+    delete store.emojis[emoji];
     saveEmojis();
   }
   res.json({ ok: true });
@@ -758,6 +764,7 @@ app.get('/api/channels', (req, res) => {
 });
 
 app.get('/api/instances', (req, res) => {
+  const { instances } = getStore(req.user.login);
   res.json(
     instances.map(
       ({
@@ -815,40 +822,46 @@ app.post('/api/instances', (req, res) => {
     referenceImages: [],
     postSuffix: DEFAULT_POST_SUFFIX
   };
-  instances.push(inst);
-  saveInstances();
+  const store = getStore(req.user.login);
+  store.instances.push(inst);
+  saveInstances(req.user.login);
   res.json(inst);
 });
 
 app.get('/api/instances/:id', (req, res) => {
+  const { instances } = getStore(req.user.login);
   const inst = instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   res.json(inst);
 });
 
 app.put('/api/instances/:id', (req, res) => {
-  const inst = instances.find(i => i.id === req.params.id);
+  const store = getStore(req.user.login);
+  const inst = store.instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   Object.assign(inst, req.body);
-  saveInstances();
+  saveInstances(req.user.login);
   res.json({ ok: true });
 });
 
 app.delete('/api/instances/:id', (req, res) => {
-  const idx = instances.findIndex(i => i.id === req.params.id);
+  const store = getStore(req.user.login);
+  const idx = store.instances.findIndex(i => i.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  instances.splice(idx, 1);
-  saveInstances();
+  store.instances.splice(idx, 1);
+  saveInstances(req.user.login);
   res.json({ ok: true });
 });
 
 app.get('/api/instances/:id/approvers', (req, res) => {
+  const { instances } = getStore(req.user.login);
   const inst = instances.find(i => i.id === req.params.id);
   res.json(inst && Array.isArray(inst.approvers) ? inst.approvers : []);
 });
 
 app.post('/api/instances/:id/approvers', (req, res) => {
-  const inst = instances.find(i => i.id === req.params.id);
+  const store = getStore(req.user.login);
+  const inst = store.instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   const { username } = req.body;
   if (!username) return res.status(400).json({ error: 'username required' });
@@ -856,13 +869,14 @@ app.post('/api/instances/:id/approvers', (req, res) => {
   inst.approvers = inst.approvers || [];
   if (!inst.approvers.includes(clean)) {
     inst.approvers.push(clean);
-    saveInstances();
+    saveInstances(req.user.login);
   }
   res.json({ ok: true });
 });
 
 app.delete('/api/instances/:id/approvers', (req, res) => {
-  const inst = instances.find(i => i.id === req.params.id);
+  const store = getStore(req.user.login);
+  const inst = store.instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   const { username } = req.query;
   if (!username) return res.status(400).json({ error: 'username required' });
@@ -870,7 +884,7 @@ app.delete('/api/instances/:id/approvers', (req, res) => {
   const idx = (inst.approvers || []).findIndex(u => u === clean);
   if (idx !== -1) {
     inst.approvers.splice(idx, 1);
-    saveInstances();
+    saveInstances(req.user.login);
   }
   res.json({ ok: true });
 });
@@ -892,12 +906,14 @@ app.post('/api/instances/:id/post-channels', async (req, res) => {
 });
 
 app.get('/api/instances/:id/reference-images', (req, res) => {
+  const { instances } = getStore(req.user.login);
   const inst = instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   res.json(inst.referenceImages || []);
 });
 
 app.post('/api/instances/:id/reference-images', upload.array('images', 5), (req, res) => {
+  const { instances } = getStore(req.user.login);
   const inst = instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   inst.referenceImages = inst.referenceImages || [];
@@ -907,11 +923,12 @@ app.post('/api/instances/:id/reference-images', upload.array('images', 5), (req,
   for (const file of req.files || []) {
     inst.referenceImages.push(file.filename);
   }
-  saveInstances();
+  saveInstances(req.user.login);
   res.json(inst.referenceImages);
 });
 
 app.delete('/api/instances/:id/reference-images/:name', (req, res) => {
+  const { instances } = getStore(req.user.login);
   const inst = instances.find(i => i.id === req.params.id);
   if (!inst) return res.status(404).json({ error: 'not found' });
   inst.referenceImages = inst.referenceImages || [];
@@ -920,7 +937,7 @@ app.delete('/api/instances/:id/reference-images/:name', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   inst.referenceImages.splice(idx, 1);
   fs.unlink(path.join(__dirname, 'uploads', name), () => {});
-  saveInstances();
+  saveInstances(req.user.login);
   res.json({ ok: true });
 });
 
@@ -949,7 +966,8 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
   try {
     log(`Generating image for post ${id}`, post.instanceId);
     const body = req.body || {};
-    const inst = instances.find(i => i.id === post.instanceId);
+    const store = getStore(post.login);
+    const inst = store.instances.find(i => i.id === post.instanceId);
     const model = body.model || inst?.imageModel || DEFAULT_IMAGE_MODEL;
     const basePrompt = body.prompt || inst?.imagePrompt || DEFAULT_IMAGE_PROMPT;
     if (body.quality) inst.imageQuality = body.quality;
@@ -958,10 +976,10 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     log(`Generated image for post ${id}`, post.instanceId);
     post.media = url;
     awaitingPosts.set(id, post);
-    const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
+    const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : Array.from(allApprovers);
     for (const [uid, name] of activeApprovers.entries()) {
       if (approverList.includes(name)) {
-        const decorated = { ...post, text: applyCustomEmojis(post.text || '') };
+        const decorated = { ...post, text: applyCustomEmojis(post.text || '', post.login) };
         sendApprovalRequest(uid, decorated).catch(() => {});
       }
     }
@@ -980,8 +998,8 @@ app.post('/api/awaiting/:id/cancel', (req, res) => {
   res.json({ ok: true });
 });
 
-function postToChannel({ channel, text, media, instanceId }) {
-  const processed = applyCustomEmojis(text || '');
+function postToChannel({ channel, text, media, instanceId, login }) {
+  const processed = applyCustomEmojis(text || '', login);
   if (!media && (!processed || !processed.trim())) {
     return Promise.reject(new Error('text or media required'));
   }
@@ -1000,18 +1018,19 @@ app.post('/api/post', async (req, res) => {
     if (activeApprovers.size === 0) {
       return res.status(400).json({ error: 'no active approvers' });
     }
-    const inst = instances.find(i => i.id === instanceId);
-    const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : approvers;
+    const store = getStore(req.user.login);
+    const inst = store.instances.find(i => i.id === instanceId);
+    const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : Array.from(allApprovers);
     const targets = [];
     for (const [uid, name] of activeApprovers.entries()) {
       if (approverList.includes(name)) targets.push(uid);
     }
     if (targets.length) {
       const id = customId || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const info = { id, channel, text, media, instanceId };
+      const info = { id, channel, text, media, instanceId, login: req.user.login };
       awaitingPosts.set(id, info);
       for (const uid of targets) {
-        const decorated = { ...info, text: applyCustomEmojis(info.text || '') };
+        const decorated = { ...info, text: applyCustomEmojis(info.text || '', req.user.login) };
         sendApprovalRequest(uid, decorated).catch(() => {});
       }
       log(`Queued post ${id} for approval`, instanceId);
@@ -1019,7 +1038,7 @@ app.post('/api/post', async (req, res) => {
       return;
     }
     log(`Posting to ${channel}`, instanceId);
-    await postToChannel({ channel, text, media, instanceId });
+    await postToChannel({ channel, text, media, instanceId, login: req.user.login });
     log(`Posted to ${channel}`, instanceId);
     res.json({ ok: true });
   } catch (e) {
@@ -1049,26 +1068,29 @@ app.get('/api/logs', (req, res) => {
 });
 
 app.get('/api/tg-sources', (req, res) => {
-  res.json(tgSources);
+  const store = getStore(req.user.login);
+  res.json(store.tgSources);
 });
 
 app.post('/api/tg-sources', (req, res) => {
   const { url } = req.body;
+  const store = getStore(req.user.login);
   if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
-  if (!tgSources.includes(url)) {
-    tgSources.push(url);
-    saveTgSources();
+  if (!store.tgSources.includes(url)) {
+    store.tgSources.push(url);
+    saveTgSources(req.user.login);
   }
   res.json({ ok: true });
 });
 
 app.delete('/api/tg-sources', (req, res) => {
   const { url } = req.query;
+  const store = getStore(req.user.login);
   if (!url) return res.status(400).json({ error: 'url required' });
-  const idx = tgSources.indexOf(url);
+  const idx = store.tgSources.indexOf(url);
   if (idx !== -1) {
-    tgSources.splice(idx, 1);
-    saveTgSources();
+    store.tgSources.splice(idx, 1);
+    saveTgSources(req.user.login);
   }
   res.json({ ok: true });
 });
@@ -1105,7 +1127,8 @@ app.get('/api/models', async (req, res) => {
 });
 
 app.get('/api/filters', (req, res) => {
-  res.json(filters);
+  const store = getStore(req.user.login);
+  res.json(store.filters);
 });
 
 app.post('/api/vector-stores', upload.array('attachments'), async (req, res) => {
@@ -1145,10 +1168,11 @@ app.post('/api/filters', upload.none(), async (req, res) => {
       tools: vectorStoreId ? [{ type: 'file_search' }] : [],
       tool_resources: vectorStoreId ? { file_search: { vector_store_ids: [vectorStoreId] } } : undefined
     });
+    const store = getStore(req.user.login);
     const ms = parseFloat(min_score);
     const info = { id: createResp.id, title, model, instructions, file_ids: [], vector_store_id: vectorStoreId, min_score: isNaN(ms) ? 7 : ms };
-    filters.push(info);
-    saveFilters();
+    store.filters.push(info);
+    saveFilters(req.user.login);
     log(`Created filter ${title}`);
     res.json(info);
   } catch (e) {
@@ -1161,20 +1185,22 @@ app.post('/api/filters', upload.none(), async (req, res) => {
 
 app.put('/api/filters/:id', (req, res) => {
   const { id } = req.params;
-  const filter = filters.find(f => f.id === id);
+  const store = getStore(req.user.login);
+  const filter = store.filters.find(f => f.id === id);
   if (!filter) return res.status(404).json({ error: 'not found' });
   if (req.body.min_score != null) {
     const ms = parseFloat(req.body.min_score);
     filter.min_score = isNaN(ms) ? filter.min_score : ms;
   }
-  saveFilters();
+  saveFilters(req.user.login);
   res.json(filter);
 });
 
 app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const filter = filters.find(f => f.id === id);
+  const { id } = req.params;
+  const store = getStore(req.user.login);
+  const filter = store.filters.find(f => f.id === id);
     if (!filter) return res.status(404).json({ error: 'not found' });
     if (!filter.vector_store_id) return res.status(400).json({ error: 'no vector store' });
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
@@ -1186,7 +1212,7 @@ app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res)
       fs.unlink(file.path, () => {});
     }
     filter.file_ids.push(...added);
-    saveFilters();
+    saveFilters(req.user.login);
     log(`Added ${added.length} file(s) to filter ${filter.title}`);
     res.json({ file_ids: added });
   } catch (e) {
@@ -1200,7 +1226,8 @@ app.post('/api/filters/:id/files', upload.array('attachments'), async (req, res)
 app.post('/api/filters/:id/evaluate', async (req, res) => {
   try {
     const { id } = req.params;
-    const filter = filters.find(f => f.id === id);
+    const store = getStore(req.user.login);
+    const filter = store.filters.find(f => f.id === id);
     if (!filter) return res.status(404).json({ error: 'not found' });
     const { text, post_id } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });
@@ -1232,7 +1259,8 @@ app.post('/api/filters/:id/evaluate', async (req, res) => {
 });
 
 app.get('/api/authors', (req, res) => {
-  res.json(authors);
+  const store = getStore(req.user.login);
+  res.json(store.authors);
 });
 
 app.post('/api/authors', upload.none(), async (req, res) => {
@@ -1249,9 +1277,10 @@ app.post('/api/authors', upload.none(), async (req, res) => {
       tools: vectorStoreId ? [{ type: 'file_search' }] : [],
       tool_resources: vectorStoreId ? { file_search: { vector_store_ids: [vectorStoreId] } } : undefined
     });
+    const store = getStore(req.user.login);
     const info = { id: createResp.id, title, model, instructions, file_ids: [], vector_store_id: vectorStoreId };
-    authors.push(info);
-    saveAuthors();
+    store.authors.push(info);
+    saveAuthors(req.user.login);
     log(`Created author ${title}`);
     res.json(info);
   } catch (e) {
@@ -1264,8 +1293,9 @@ app.post('/api/authors', upload.none(), async (req, res) => {
 
 app.post('/api/authors/:id/files', upload.array('attachments'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const author = authors.find(a => a.id === id);
+  const { id } = req.params;
+  const store = getStore(req.user.login);
+  const author = store.authors.find(a => a.id === id);
     if (!author) return res.status(404).json({ error: 'not found' });
     if (!author.vector_store_id) return res.status(400).json({ error: 'no vector store' });
     if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not set' });
@@ -1277,7 +1307,7 @@ app.post('/api/authors/:id/files', upload.array('attachments'), async (req, res)
       fs.unlink(file.path, () => {});
     }
     author.file_ids.push(...added);
-    saveAuthors();
+    saveAuthors(req.user.login);
     log(`Added ${added.length} file(s) to author ${author.title}`);
     res.json({ file_ids: added });
   } catch (e) {
@@ -1291,7 +1321,8 @@ app.post('/api/authors/:id/files', upload.array('attachments'), async (req, res)
 app.post('/api/authors/:id/rewrite', async (req, res) => {
   try {
     const { id } = req.params;
-    const author = authors.find(a => a.id === id);
+    const store = getStore(req.user.login);
+    const author = store.authors.find(a => a.id === id);
     if (!author) return res.status(404).json({ error: 'not found' });
     const { text, post_id } = req.body;
     if (!text) return res.status(400).json({ error: 'text required' });

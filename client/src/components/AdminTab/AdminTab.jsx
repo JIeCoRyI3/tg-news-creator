@@ -137,6 +137,10 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
       .catch(() => setConfirmDelete(false))
   }
 
+  const importData = () => {
+    apiFetch('/api/import-data', { method: 'POST' }).catch(() => {})
+  }
+
   return (
     <div className="admin-tab">
       <div className="tg-input">
@@ -221,6 +225,7 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
         ))}
       </ul>
       <Button onClick={() => setConfirmDelete(true)}>Delete instance</Button>
+      <Button onClick={importData}>Import data</Button>
       <Modal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
