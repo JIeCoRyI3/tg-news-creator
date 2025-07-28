@@ -1,2 +1,2 @@
 /* Re-export component for simplified imports. */
-export { default } from "./FilterSelect.jsx";
+export { default } from './FilterSelect.jsx';
