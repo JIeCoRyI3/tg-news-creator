@@ -34,8 +34,8 @@ The server always loads this `server/.env` file so it works even when started
 from the project root.
 
 Channel and configuration data is stored in a small SQLite database under
-`server/data.db`. Use the **Import data** button in the Administration tab to
-migrate existing JSON files. Admin channels can also be added by inviting the bot
+`server/data.db`. Use the **Import data** button on the Users page to migrate
+existing JSON files. Admin channels can also be added by inviting the bot
 as an administrator.
 
 On startup the bot resolves these links to channel IDs and rewrites the file with the channel information. It also keeps track of channels where it gains administrator rights. The React client loads this list so you can choose where to post news.

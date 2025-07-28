@@ -59,6 +59,7 @@ async function resolveLink(link) {
 async function loadChannels() {
   try {
     const parsed = db.getData(ADMIN_USER, 'adminChannels');
+    if (!parsed) return;
     if (Array.isArray(parsed)) {
       for (const link of parsed) {
         const res = await resolveLink(link);

@@ -14,7 +14,7 @@ import apiFetch from './api.js'
  * account row includes a button to delete that user.  The page uses the
  * modern dashboard styles for a consistent look and feel.
  */
-export default function Users() {
+export default function Users({ user }) {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [accounts, setAccounts] = useState([])
@@ -47,6 +47,10 @@ export default function Users() {
     apiFetch(`/api/users/${name}`, { method: 'DELETE' })
       .then(load)
       .catch(() => {})
+  }
+
+  const importData = () => {
+    apiFetch('/api/import-data', { method: 'POST' }).catch(() => {})
   }
 
   return (
@@ -82,6 +86,9 @@ export default function Users() {
             </li>
           ))}
         </ul>
+        {user?.login === 'root' && (
+          <Button onClick={importData}>Import data</Button>
+        )}
       </div>
     </div>
   )

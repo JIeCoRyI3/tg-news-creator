@@ -188,7 +188,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <Users />
+          <Users user={user} />
         )}
       </main>
     </div>
