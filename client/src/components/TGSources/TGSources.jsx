@@ -1,9 +1,15 @@
+/**
+ * Form allowing entry of Telegram channel URLs to scrape.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from '../ui/Button.jsx'
 import Modal from '../ui/Modal.jsx'
 import apiFetch from '../../api.js'
 
+/**
+ * Manage the list of Telegram source URLs.
+ */
 export default function TGSources({ urls, addUrl, removeUrl }) {
   const [value, setValue] = useState('')
   const [info, setInfo] = useState({})

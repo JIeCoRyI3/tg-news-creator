@@ -1,6 +1,12 @@
+/**
+ * List container for displaying multiple scraped posts.
+ */
 import PropTypes from 'prop-types'
 import NewsItem from '../NewsItem'
 
+/**
+ * Render a list of news items.
+ */
 export default function NewsList({ news, mode }) {
   return (
     <div className="news-list">

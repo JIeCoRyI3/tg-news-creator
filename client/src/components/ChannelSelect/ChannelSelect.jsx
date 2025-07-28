@@ -1,5 +1,11 @@
+/**
+ * List of Telegram channels with checkboxes for selecting posting targets.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Render a multi-select checkbox list of channels.
+ */
 export default function ChannelSelect({ channels, selected, setSelected }) {
   const toggle = (id) => {
     setSelected(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])

@@ -1,3 +1,6 @@
+/**
+ * Minimal login page used to acquire an access token for the API.
+ */
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import Button from './components/ui/Button.jsx'

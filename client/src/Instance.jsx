@@ -1,3 +1,7 @@
+/**
+ * Component representing a single posting instance.  Handles scraping
+ * of Telegram channels and posting workflow based on user selections.
+ */
 import { useState, useEffect, useRef } from 'react'
 import Logs from './components/Logs'
 import ChannelSelect from './components/ChannelSelect'
@@ -16,6 +20,11 @@ import apiFetch from './api.js'
 import './App.css'
 
 
+/**
+ * Dashboard component containing the core posting workflow for a single
+ * instance.  It manages state for channels, filters and authors while
+ * streaming Telegram updates via server-sent events.
+ */
 export default function Instance({ id, title, onDelete }) {
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
@@ -129,6 +138,11 @@ export default function Instance({ id, title, onDelete }) {
     postSuffixRef.current = postSuffix
   }, [postSuffix])
 
+  /**
+   * Open a server-sent events connection to stream posts or logs.
+   * The token and instance ID are appended to the query string so the
+   * server can authenticate and route events appropriately.
+   */
   const connect = (endpoint, params) => {
     if (es) return
     const qs = new URLSearchParams(params)

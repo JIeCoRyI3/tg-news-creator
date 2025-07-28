@@ -1,5 +1,12 @@
+/**
+ * Dropdown component used to choose an Author GPT profile for rewriting
+ * posts.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Choose an author from the provided list.
+ */
 export default function AuthorSelect({ authors, selected, setSelected }) {
   return (
     <div className="author-select">

@@ -1,6 +1,12 @@
+/**
+ * Simple set of buttons used to start/stop scraping and posting.
+ */
 import PropTypes from 'prop-types'
 import Button from '../ui/Button.jsx'
 
+/**
+ * Display buttons for controlling background tasks.
+ */
 export default function Controls({ startGet, startPost, stop, startLabel = 'Start Getting', disabled = false }) {
   return (
     <div className="controls">

@@ -1,3 +1,6 @@
+/**
+ * Lightweight inline SVG icon component used across the dashboard.
+ */
 import PropTypes from 'prop-types'
 /**
  * Render an inline SVG icon.  The `iconDef` prop should be an object

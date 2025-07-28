@@ -1,3 +1,7 @@
+/**
+ * Reusable button component that automatically picks an icon based on
+ * the label text.
+ */
 import PropTypes from 'prop-types'
 import './button.css'
 import { Children } from 'react'

@@ -1,9 +1,15 @@
+/**
+ * Tab for managing Author GPT assistants used when rewriting posts.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from '../ui/Button.jsx'
 import Modal from '../ui/Modal.jsx'
 import apiFetch from '../../api.js'
 
+/**
+ * Manage the list of author assistants and configure the post suffix.
+ */
 export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuffix }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')

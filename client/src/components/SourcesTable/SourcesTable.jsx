@@ -1,5 +1,11 @@
+/**
+ * Table listing news sources and their scraping status.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Render a table of available sources with selection checkboxes.
+ */
 export default function SourcesTable({ sources, selected, toggle, statuses = {} }) {
   return (
     <table className="sources">
