@@ -1,2 +1,2 @@
 /* Re-export component for simplified imports. */
-export { default } from './NewsList.jsx';
+export { default } from "./NewsList.jsx";

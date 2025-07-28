@@ -1,2 +1,2 @@
 /* Re-export component for simplified imports. */
-export { default } from './Logs.jsx';
+export { default } from "./Logs.jsx";
