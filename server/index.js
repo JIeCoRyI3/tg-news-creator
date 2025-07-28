@@ -20,6 +20,7 @@ const { telegram_scraper } = require('telegram-scraper');
 const fs = require('fs');
 const multer = require('multer');
 const db = require('./db');
+const emoji = require('node-emoji');
 let listChannels,
     listInstanceChannels,
     addChannel,
@@ -295,7 +296,8 @@ botEvents.on('callback', async (query) => {
         const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : Array.from(allApprovers);
         for (const [uid, name] of activeApprovers.entries()) {
           if (approverList.includes(name)) {
-            const decorated = { ...post, text: applyCustomEmojis(post.text || '', post.login) };
+            const { text: replacedText, replaced } = applyCustomEmojisWithInfo(post.text || '', post.login);
+            const decorated = { ...post, text: replacedText + (replaced.length ? `\nReplaced: ${replaced.join(', ')}` : '') };
             sendApprovalRequest(uid, decorated).catch(() => {});
           }
         }
@@ -449,6 +451,23 @@ function applyCustomEmojis(text, login) {
   return result;
 }
 
+function applyCustomEmojisWithInfo(text, login) {
+  if (!text) return { text, replaced: [] };
+  const map = login ? getStore(login).emojis : {};
+  let result = String(text);
+  const replaced = [];
+  for (const [emoji, id] of Object.entries(map)) {
+    if (!emoji || !id) continue;
+    const escaped = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'g');
+    if (re.test(result)) {
+      result = result.replace(re, `<tg-emoji emoji-id="${id}">${emoji}</tg-emoji>`);
+      replaced.push(emoji);
+    }
+  }
+  return { text: result, replaced };
+}
+
 /**
  * Parse lines of the form `:smile: - \uE123` from a Telegram message and
  * build a map of regular emoji to custom emoji IDs.
@@ -471,6 +490,12 @@ function parseEmojiPack(msg) {
     const entity = entities.find(e => e.type === 'custom_emoji' && e.offset >= startSearch && e.offset < offset + line.length);
     if (entity) {
       result[regular] = entity.custom_emoji_id;
+      if (regular.startsWith(':') && regular.endsWith(':')) {
+        const actual = emoji.get(regular);
+        if (actual && actual !== regular) {
+          result[actual] = entity.custom_emoji_id;
+        }
+      }
     }
     offset += line.length + 1;
   }
@@ -987,12 +1012,13 @@ app.post('/api/awaiting/:id/image', async (req, res) => {
     post.media = url;
     awaitingPosts.set(id, post);
     const approverList = inst && Array.isArray(inst.approvers) ? inst.approvers : Array.from(allApprovers);
-    for (const [uid, name] of activeApprovers.entries()) {
-      if (approverList.includes(name)) {
-        const decorated = { ...post, text: applyCustomEmojis(post.text || '', post.login) };
-        sendApprovalRequest(uid, decorated).catch(() => {});
+      for (const [uid, name] of activeApprovers.entries()) {
+        if (approverList.includes(name)) {
+          const { text: replacedText, replaced } = applyCustomEmojisWithInfo(post.text || '', post.login);
+          const decorated = { ...post, text: replacedText + (replaced.length ? `\nReplaced: ${replaced.join(', ')}` : '') };
+          sendApprovalRequest(uid, decorated).catch(() => {});
+        }
       }
-    }
     res.json({ ok: true });
   } catch (e) {
     log(`Failed generating image for post ${id}: ${e.message}`, post.instanceId);
@@ -1040,7 +1066,8 @@ app.post('/api/post', async (req, res) => {
       const info = { id, channel, text, media, instanceId, login: req.user.login };
       awaitingPosts.set(id, info);
       for (const uid of targets) {
-        const decorated = { ...info, text: applyCustomEmojis(info.text || '', req.user.login) };
+        const { text: replacedText, replaced } = applyCustomEmojisWithInfo(info.text || '', req.user.login);
+        const decorated = { ...info, text: replacedText + (replaced.length ? `\nReplaced: ${replaced.join(', ')}` : '') };
         sendApprovalRequest(uid, decorated).catch(() => {});
       }
       log(`Queued post ${id} for approval`, instanceId);
