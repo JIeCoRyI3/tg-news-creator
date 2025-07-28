@@ -34,9 +34,9 @@ The server always loads this `server/.env` file so it works even when started
 from the project root.
 
 Channel and configuration data is stored in a small SQLite database under
-`server/data.db`. Use the **Import data** button on the Users page to migrate
-existing JSON files. Admin channels can also be added by inviting the bot
-as an administrator.
+`server/data.db`. Use the **Import data** button on the Users page to upload
+your old `*.json` files and store them for the `root` user. Admin channels can
+also be added by inviting the bot as an administrator.
 
 On startup the bot resolves these links to channel IDs and rewrites the file with the channel information. It also keeps track of channels where it gains administrator rights. The React client loads this list so you can choose where to post news.
 
@@ -94,6 +94,10 @@ curl -F attachments=@notes.txt \
     http://localhost:3001/api/filters/<id>/files
 ```
 
+### Database viewer
+
+Run `npm run database-vis` to launch a small server showing the current
+contents of `server/data.db` at <http://localhost:4000>.
 
 ## Sharing your local server
 

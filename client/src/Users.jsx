@@ -1,7 +1,7 @@
 /**
  * Administration page allowing management of user accounts.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Button from './components/ui/Button.jsx'
 import Icon from './components/ui/Icon.jsx'
 // Import icons from our local definitions
@@ -18,6 +18,7 @@ export default function Users({ user }) {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [accounts, setAccounts] = useState([])
+  const fileInput = useRef(null)
 
   const load = () => {
     apiFetch('/api/users')
@@ -50,7 +51,17 @@ export default function Users({ user }) {
   }
 
   const importData = () => {
-    apiFetch('/api/import-data', { method: 'POST' }).catch(() => {})
+    fileInput.current?.click()
+  }
+
+  const onFiles = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const fd = new FormData()
+    files.forEach(f => fd.append('files', f))
+    apiFetch('/api/import-data', { method: 'POST', body: fd })
+      .then(() => { e.target.value = '' })
+      .catch(() => {})
   }
 
   return (
@@ -87,7 +98,17 @@ export default function Users({ user }) {
           ))}
         </ul>
         {user?.login === 'root' && (
-          <Button onClick={importData}>Import data</Button>
+          <>
+            <Button onClick={importData}>Import data</Button>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              accept="application/json"
+              style={{ display: 'none' }}
+              onChange={onFiles}
+            />
+          </>
         )}
       </div>
     </div>

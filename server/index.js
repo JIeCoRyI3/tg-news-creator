@@ -568,15 +568,15 @@ app.delete('/api/users/:login', (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/import-data', (req, res) => {
+app.post('/api/import-data', upload.array('files'), (req, res) => {
   if (req.user.login !== 'root') return res.status(403).json({ error: 'forbidden' });
-  const files = ['admin-channels.json','approvers.json','authors.json','emojis.json','filters.json','instances.json','users.json'];
-  for (const f of files) {
-    const p = path.join(__dirname, f);
-    if (!fs.existsSync(p)) continue;
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'no files' });
+  const store = getStore('root');
+  for (const file of req.files) {
+    const name = path.basename(file.originalname).toLowerCase();
     try {
-      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-      const key = f.replace('.json','').replace(/-([a-z])/g, (_,c) => c.toUpperCase());
+      const data = JSON.parse(fs.readFileSync(file.path, 'utf8'));
+      const key = name.replace('.json','').replace(/-([a-z])/g, (_,c) => c.toUpperCase());
       if (key === 'users') {
         for (const u of data || []) {
           if (!users.find(x => x.login === u.login)) users.push(u);
@@ -584,9 +584,18 @@ app.post('/api/import-data', (req, res) => {
         saveUsers();
       } else {
         db.setData('root', key, data);
+        if (key === 'instances') { store.instances = Array.isArray(data) ? data : []; computeApprovers('root'); }
+        else if (key === 'authors') { store.authors = Array.isArray(data) ? data : []; }
+        else if (key === 'filters') { store.filters = Array.isArray(data) ? data : []; }
+        else if (key === 'emojis') { store.emojis = data && typeof data === 'object' ? data : {}; }
+        else if (key === 'adminChannels') { store.adminChannels = data || {}; }
+        else if (key === 'approvers') { store.approvers = Array.isArray(data) ? data : []; updateAllApprovers(); }
+        else if (key === 'tgSources') { store.tgSources = Array.isArray(data) ? data : []; }
       }
     } catch (e) {
-      console.error('Failed importing', f, e.message);
+      console.error('Failed importing', name, e.message);
+    } finally {
+      fs.unlink(file.path, () => {});
     }
   }
   res.json({ ok: true });
