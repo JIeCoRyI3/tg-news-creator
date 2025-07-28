@@ -4,7 +4,8 @@
   "scripts": {
     "install-all": "npm install --prefix server && npm install --prefix client",
     "start": "concurrently \"npm start --prefix server\" \"npm run dev --prefix client\"",
-    "share": "npm run build --prefix client && concurrently \"npm start --prefix server\" \"npx localtunnel --port 3001\""
+    "share": "npm run build --prefix client && concurrently \"npm start --prefix server\" \"npx localtunnel --port 3001\"",
+    "database-vis": "npm run database-vis --prefix server"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

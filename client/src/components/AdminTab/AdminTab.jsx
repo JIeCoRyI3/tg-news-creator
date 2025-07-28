@@ -137,6 +137,7 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
       .catch(() => setConfirmDelete(false))
   }
 
+
   return (
     <div className="admin-tab">
       <div className="tg-input">
