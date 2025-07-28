@@ -31,7 +31,9 @@ let listChannels,
     resolveLink,
     sendApprovalRequest,
     answerCallback,
-    deleteMessage;
+    deleteMessage,
+    getStickerSet,
+    getCustomEmojiStickers;
 
 try {
   ({
@@ -45,7 +47,9 @@ try {
     resolveLink,
     sendApprovalRequest,
     answerCallback,
-    deleteMessage
+    deleteMessage,
+    getStickerSet,
+    getCustomEmojiStickers
   } = require('../bot'));
 } catch (e) {
   console.log('Bot disabled:', e.message);
@@ -64,6 +68,8 @@ try {
   sendApprovalRequest = stub;
   answerCallback = stub;
   deleteMessage = stub;
+  getStickerSet = stub;
+  getCustomEmojiStickers = stub;
 }
 const { OpenAI, toFile } = require('openai');
 const { ProxyAgent } = require('undici');
@@ -115,6 +121,7 @@ function log(message, instanceId) {
 const awaitingPosts = new Map();
 const activeApprovers = new Map(); // id -> username
 const awaitingEmojiPacks = new Map(); // tg id -> [logins]
+const awaitingPackNames = new Map(); // tg id -> [logins]
 let users = [];
 
 /**
@@ -346,8 +353,51 @@ botEvents.on('add_emojis', (msg) => {
   }
 });
 
-botEvents.on('message', (msg) => {
+botEvents.on('add_pack', async ({ msg, name }) => {
   const id = String(msg.from.id);
+  const username = msg.from.username ? msg.from.username.toLowerCase() : '';
+  const logins = [];
+  for (const u of users) {
+    const store = getStore(u.login);
+    if (store.approvers.includes(username)) logins.push(u.login);
+  }
+  if (!logins.length) {
+    sendMessage(id, 'You are not an approver.', {}, undefined).catch(() => {});
+    return;
+  }
+  if (name) {
+    const added = await addEmojiPack(name, logins);
+    sendMessage(id, added ? `Added ${added} emojis from ${name}.` : 'No emojis added.', {}, undefined).catch(() => {});
+  } else {
+    awaitingPackNames.set(id, logins);
+    sendMessage(id, 'Send emoji pack name or a custom emoji from it', {}, undefined).catch(() => {});
+  }
+});
+
+botEvents.on('message', async (msg) => {
+  const id = String(msg.from.id);
+  const packLogins = awaitingPackNames.get(id);
+  if (packLogins) {
+    awaitingPackNames.delete(id);
+    let packName = null;
+    const entities = msg.entities || [];
+    const e = entities.find(ent => ent.type === 'custom_emoji' && ent.custom_emoji_id);
+    if (e) {
+      try {
+        const res = await getCustomEmojiStickers([e.custom_emoji_id]);
+        if (Array.isArray(res) && res[0]?.set_name) packName = res[0].set_name;
+      } catch (_) {}
+    }
+    if (!packName && msg.text) packName = msg.text.trim();
+    if (packName) {
+      const added = await addEmojiPack(packName, packLogins);
+      sendMessage(id, added ? `Added ${added} emojis from ${packName}.` : 'No emojis added.', {}, undefined).catch(() => {});
+    } else {
+      sendMessage(id, 'Could not detect emoji pack.', {}, undefined).catch(() => {});
+    }
+    return;
+  }
+
   const logins = awaitingEmojiPacks.get(id);
   if (!logins || !msg.text) return;
   awaitingEmojiPacks.delete(id);
@@ -500,6 +550,40 @@ function parseEmojiPack(msg) {
     offset += line.length + 1;
   }
   return result;
+}
+
+async function loadEmojiPack(name) {
+  try {
+    const set = await getStickerSet(name);
+    if (!set || set.sticker_type !== 'custom_emoji' || !Array.isArray(set.stickers)) {
+      return null;
+    }
+    const map = {};
+    for (const st of set.stickers) {
+      if (st.custom_emoji_id && st.emoji) {
+        map[st.emoji] = st.custom_emoji_id;
+      }
+    }
+    return map;
+  } catch (e) {
+    console.error('Failed to load emoji pack', name, e.message);
+    return null;
+  }
+}
+
+async function addEmojiPack(name, logins) {
+  const map = await loadEmojiPack(name);
+  if (!map) return 0;
+  let added = 0;
+  for (const login of logins) {
+    const store = getStore(login);
+    for (const [emojiChar, id] of Object.entries(map)) {
+      store.emojis[emojiChar] = id;
+      added++;
+    }
+  }
+  if (added) saveEmojis();
+  return added;
 }
 app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {

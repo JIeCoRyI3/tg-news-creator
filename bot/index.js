@@ -265,6 +265,10 @@ bot.onText(/\/add_emojis/i, (msg) => {
   botEvents.emit('add_emojis', msg);
 });
 
+bot.onText(/\/add_pack(?:\s+(\S+))?/i, (msg, match) => {
+  botEvents.emit('add_pack', { msg, name: match && match[1] });
+});
+
 bot.on('message', (msg) => {
   botEvents.emit('message', msg);
 });
@@ -296,13 +300,16 @@ module.exports = {
   resolveLink,
   sendApprovalRequest,
   answerCallback,
-  deleteMessage
+  deleteMessage,
+  getStickerSet: (name) => bot.getStickerSet(name),
+  getCustomEmojiStickers: (ids) => bot.getCustomEmojiStickers(ids)
 };
 
 (async () => {
   await loadChannels();
   await bot.setMyCommands([
     { command: 'start_approving', description: 'Receive approval requests' },
-    { command: 'add_emojis', description: 'Upload custom emojis' }
+    { command: 'add_emojis', description: 'Upload custom emojis' },
+    { command: 'add_pack', description: 'Import custom emoji pack' }
   ]);
 })();
