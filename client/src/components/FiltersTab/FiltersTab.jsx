@@ -1,9 +1,15 @@
+/**
+ * Tab displaying and creating content filters powered by OpenAI.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from '../ui/Button.jsx'
 import Modal from '../ui/Modal.jsx'
 import apiFetch from '../../api.js'
 
+/**
+ * Manage the list of available filters.
+ */
 export default function FiltersTab({ filters, setFilters }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')

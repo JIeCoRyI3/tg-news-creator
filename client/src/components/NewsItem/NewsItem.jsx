@@ -1,6 +1,12 @@
+/**
+ * Individual scraped news item.  Can render raw JSON or HTML.
+ */
 import PropTypes from 'prop-types'
 import DOMPurify from 'dompurify'
 
+/**
+ * Render a single news item using the selected display mode.
+ */
 export default function NewsItem({ item, mode }) {
   return (
     <div className="news-item">

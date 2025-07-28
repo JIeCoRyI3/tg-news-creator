@@ -1,3 +1,9 @@
+/**
+ * Express-based API server powering the TG News Creator application.
+ * This file wires together all routes, scraping logic and bot
+ * integrations used by the client dashboard.  Environment variables
+ * are read from `.env` in the server directory.
+ */
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
@@ -104,6 +110,11 @@ let users = [];
 const EMOJIS_FILE = path.join(__dirname, 'emojis.json');
 let emojis = {};
 
+/**
+ * Load instance configuration from disk into memory.  Defaults are
+ * applied to each instance to avoid undefined settings.  The list of
+ * approver usernames is recomputed after loading.
+ */
 function loadInstances() {
   try {
     const data = fs.readFileSync(INSTANCES_FILE, 'utf8');
@@ -127,6 +138,10 @@ function loadInstances() {
   computeApprovers();
 }
 
+/**
+ * Persist the current instances array to disk and update the
+ * aggregated list of approver usernames.
+ */
 function saveInstances() {
   try {
     fs.writeFileSync(INSTANCES_FILE, JSON.stringify(instances, null, 2));
@@ -136,6 +151,11 @@ function saveInstances() {
   computeApprovers();
 }
 
+/**
+ * Aggregate approver usernames from all instances.  Usernames are
+ * normalized to lower case to simplify lookups.  The resulting list is
+ * persisted to disk for use by the bot.
+ */
 function computeApprovers() {
   const set = new Set();
   for (const inst of instances) {
@@ -432,6 +452,14 @@ async function generateImage(model, basePrompt, text, inst, post) {
   return null;
 }
 
+/**
+ * Replace plain emoji characters in a text string with their custom
+ * Telegram emoji equivalents.  We build a regexp for each known custom
+ * emoji so multiple occurrences are handled.
+ *
+ * @param {string} text Input text possibly containing plain emoji
+ * @returns {string} Text with custom emoji HTML inserted
+ */
 function applyCustomEmojis(text) {
   if (!text) return text;
   let result = String(text);
@@ -444,6 +472,13 @@ function applyCustomEmojis(text) {
   return result;
 }
 
+/**
+ * Parse lines of the form `:smile: - \uE123` from a Telegram message and
+ * build a map of regular emoji to custom emoji IDs.
+ *
+ * @param {Object} msg Telegram message containing `text` and `entities`
+ * @returns {Object<string,string>} Mapping of emoji to custom IDs
+ */
 function parseEmojiPack(msg) {
   const text = msg.text || '';
   const entities = Array.isArray(msg.entities) ? msg.entities : [];

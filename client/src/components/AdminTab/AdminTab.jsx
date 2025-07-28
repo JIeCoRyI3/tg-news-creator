@@ -1,3 +1,7 @@
+/**
+ * Administrative settings tab for an instance.  Allows uploading
+ * reference images and configuring image generation options.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Button from '../ui/Button.jsx'
@@ -10,6 +14,10 @@ const IMAGE_QUALITIES = ['low', 'medium', 'high']
 const IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024']
 const DALL_E2_SIZES = ['256x256', '512x512', '1024x1024']
 
+/**
+ * Render the administration tab allowing management of approvers and
+ * reference image settings for a particular instance.
+ */
 export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt, imageQuality, setImageQuality, imageSize, setImageSize }) {
   const [username, setUsername] = useState('')
   const [approvers, setApprovers] = useState([])

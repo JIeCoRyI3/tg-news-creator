@@ -1,3 +1,6 @@
+/**
+ * Administration page allowing management of user accounts.
+ */
 import { useState, useEffect } from 'react'
 import Button from './components/ui/Button.jsx'
 import Icon from './components/ui/Icon.jsx'

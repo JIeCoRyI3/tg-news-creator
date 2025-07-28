@@ -1,3 +1,7 @@
+/**
+ * Main application component providing navigation and authentication
+ * handling for the TG News Creator dashboard.
+ */
 import { useState, useEffect } from 'react'
 import apiFetch from './api.js'
 import Instance from './Instance.jsx'

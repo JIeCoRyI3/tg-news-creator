@@ -1,5 +1,11 @@
+/**
+ * Dropdown component for selecting a post filter.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Choose which filter to apply to scraped posts.
+ */
 export default function FilterSelect({ filters, selected, setSelected }) {
   return (
     <div className="filter-select">
