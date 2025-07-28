@@ -1,21 +1,31 @@
+/**
+ * Component that encapsulates a single "instance" configuration.  Each instance
+ * manages its own scraping connection, posting state and settings.  The
+ * majority of the application logic lives here as hooks reacting to user input
+ * and server events.
+ */
 import { useState, useEffect, useRef } from 'react'
-import Logs from './components/Logs.jsx'
-import ChannelSelect from './components/ChannelSelect.jsx'
-import ModeToggle from './components/ModeToggle.jsx'
-import Controls from './components/Controls.jsx'
-import NewsList from './components/NewsList.jsx'
-import TGSources from './components/TGSources.jsx'
-import FilterSelect from './components/FilterSelect.jsx'
-import AuthorSelect from './components/AuthorSelect.jsx'
-import FiltersTab from './components/FiltersTab.jsx'
-import AuthorsTab from './components/AuthorsTab.jsx'
-import AdminTab from './components/AdminTab.jsx'
+import Logs from './components/Logs'
+import ChannelSelect from './components/ChannelSelect'
+import ModeToggle from './components/ModeToggle'
+import Controls from './components/Controls'
+import NewsList from './components/NewsList'
+import TGSources from './components/TGSources'
+import FilterSelect from './components/FilterSelect'
+import AuthorSelect from './components/AuthorSelect'
+import FiltersTab from './components/FiltersTab'
+import AuthorsTab from './components/AuthorsTab'
+import AdminTab from './components/AdminTab'
 import Button from './components/ui/Button.jsx'
 import apiFetch from './api.js'
 
 import './App.css'
 
-
+/**
+ * Render the UI for a single instance.  The component handles establishing the
+ * EventSource connection, posting logic and synchronising settings with the
+ * backend.
+ */
 export default function Instance({ id, title, onDelete }) {
   const [news, setNews] = useState([])
   const [es, setEs] = useState(null)
@@ -129,6 +139,12 @@ export default function Instance({ id, title, onDelete }) {
     postSuffixRef.current = postSuffix
   }, [postSuffix])
 
+  /**
+   * Open an EventSource connection to the backend.  The connection is annotated
+   * with the instance id and authentication token so the server can stream the
+   * relevant posts.  Incoming messages are optionally auto-posted depending on
+   * the current UI state.
+   */
   const connect = (endpoint, params) => {
     if (es) return
     const qs = new URLSearchParams(params)

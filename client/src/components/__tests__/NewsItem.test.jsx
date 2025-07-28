@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import NewsItem from '../NewsItem.jsx'
+import NewsItem from '../NewsItem'
 
 describe('NewsItem', () => {
   const item = {

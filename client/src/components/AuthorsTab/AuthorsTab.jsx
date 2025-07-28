@@ -1,9 +1,18 @@
+/**
+ * Tab for managing Author GPT configurations.  Allows creating new authors and
+ * uploading training files which are stored in an OpenAI vector store.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
-import Modal from './ui/Modal.jsx'
-import apiFetch from '../api.js'
+import Button from '../ui/Button.jsx'
+import Modal from '../ui/Modal.jsx'
+import apiFetch from '../../api.js'
 
+/**
+ * Display a list of authors and a form for creating new ones.  The post suffix
+ * textarea allows appending HTML to every post generated using the selected
+ * author profile.
+ */
 export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuffix }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')

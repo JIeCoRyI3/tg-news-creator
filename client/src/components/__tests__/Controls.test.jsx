@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import Controls from '../Controls.jsx'
+import Controls from '../Controls'
 
 describe('Controls', () => {
   test('renders buttons', () => {

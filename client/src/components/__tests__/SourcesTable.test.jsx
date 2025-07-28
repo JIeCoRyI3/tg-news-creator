@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import SourcesTable from '../SourcesTable.jsx'
+import SourcesTable from '../SourcesTable'
 
 describe('SourcesTable', () => {
   const sources = { a: 'A', b: 'B' }

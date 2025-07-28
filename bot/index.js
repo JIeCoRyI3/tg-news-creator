@@ -1,3 +1,8 @@
+/**
+ * Telegram bot wrapper used by the server to send messages and manage channels.
+ * The module exposes helper functions for common bot actions and emits events
+ * for incoming updates so the server can react accordingly.
+ */
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
@@ -23,6 +28,11 @@ const bot = new TelegramBot(token, { polling: true });
 const adminChannels = new Map();
 const channelsByInstance = new Map(); // instanceId -> Set of channel ids
 
+/**
+ * Resolve a Telegram channel link or @username into a numeric chat id and basic
+ * info object.  This is used to validate user provided links before persisting
+ * them.
+ */
 async function resolveLink(link) {
   const match = link.match(/t\.me\/(.+)/i);
   let identifier = link;
@@ -41,6 +51,11 @@ async function resolveLink(link) {
   }
 }
 
+/**
+ * Read the list of administrator channels from disk and populate the in-memory
+ * maps.  Links are resolved on startup so the bot knows which channels it can
+ * post to.
+ */
 async function loadChannels() {
   try {
     const data = fs.readFileSync(ADMIN_FILE, 'utf8');
@@ -82,6 +97,9 @@ async function loadChannels() {
   }
 }
 
+/**
+ * Persist the current channel map to disk grouped by instance id.
+ */
 function persistChannels() {
   const obj = {};
   for (const [inst, ids] of channelsByInstance.entries()) {
@@ -115,12 +133,20 @@ bot.on('my_chat_member', data => {
   }
 });
 
+/**
+ * Return an object mapping channel ids to their metadata for all channels the
+ * bot currently has admin rights in.
+ */
 function listChannels() {
   const obj = {};
   for (const [id, info] of adminChannels.entries()) obj[id] = info;
   return obj;
 }
 
+/**
+ * Retrieve the subset of channels associated with a particular instance.  This
+ * is used when posting so each instance only accesses its configured channels.
+ */
 function listInstanceChannels(instanceId) {
   const obj = {};
   const ids = channelsByInstance.get(instanceId) || new Set();
@@ -131,6 +157,10 @@ function listInstanceChannels(instanceId) {
   return obj;
 }
 
+/**
+ * Resolve a channel link and register it under the given instance id.  Returns
+ * the resolved channel info or `null` if resolution failed.
+ */
 async function addChannel(instanceId, link) {
   const res = await resolveLink(link);
   if (!res) return null;
@@ -142,6 +172,10 @@ async function addChannel(instanceId, link) {
   return { id, ...info };
 }
 
+/**
+ * Send a plain text message to a chat.  Errors are logged and re-thrown so the
+ * caller can react.
+ */
 async function sendMessage(channel, text, options = {}, instanceId) {
   try {
     await bot.sendMessage(channel, text, { parse_mode: 'HTML', ...options });
@@ -162,6 +196,10 @@ function decodeDataUrl(dataUrl) {
   return Buffer.from(match[2], 'base64');
 }
 
+/**
+ * Send a photo to a chat.  Data URLs and remote HTTP URLs are supported in
+ * addition to local file paths.
+ */
 async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   try {
     let payload = url;
@@ -189,6 +227,9 @@ async function sendPhoto(channel, url, caption, options = {}, instanceId) {
   }
 }
 
+/**
+ * Send a video to a chat.  Only URLs or local paths are allowed for videos.
+ */
 async function sendVideo(channel, url, caption, options = {}, instanceId) {
   try {
     await bot.sendVideo(channel, url, { caption, parse_mode: 'HTML', ...options });
@@ -203,6 +244,10 @@ async function sendVideo(channel, url, caption, options = {}, instanceId) {
   }
 }
 
+/**
+ * Send an interactive approval request to the given user.  Inline buttons are
+ * attached so the recipient can approve, request a new image or cancel.
+ */
 async function sendApprovalRequest(userId, post) {
   const keyboard = { inline_keyboard: [[
     { text: 'Approve', callback_data: `approve:${post.id}` },
@@ -237,10 +282,16 @@ bot.on('message', (msg) => {
   botEvents.emit('message', msg);
 });
 
+/**
+ * Reply to a callback query with optional text shown as a toast in Telegram.
+ */
 function answerCallback(id, text) {
   return bot.answerCallbackQuery(id, { text });
 }
 
+/**
+ * Remove a previously sent message from a chat.
+ */
 function deleteMessage(chatId, messageId) {
   return bot.deleteMessage(chatId, messageId);
 }

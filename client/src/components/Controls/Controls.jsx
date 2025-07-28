@@ -1,6 +1,14 @@
+/**
+ * Small group of buttons used to start scraping, start posting and stop the
+ * current operation.  The parent component wires the callbacks.
+ */
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
+import Button from '../ui/Button.jsx'
 
+/**
+ * Render the control buttons for an instance.  `startGet` begins scraping,
+ * `startPost` posts new items and `stop` halts the process.
+ */
 export default function Controls({ startGet, startPost, stop, startLabel = 'Start Getting', disabled = false }) {
   return (
     <div className="controls">

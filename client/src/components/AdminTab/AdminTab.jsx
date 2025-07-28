@@ -1,8 +1,13 @@
+/**
+ * Tab containing administrative functions for an instance.  Approvers, posting
+ * channels and reference images can be configured here.  The tab also allows
+ * tweaking the image generation settings used when creating new posts.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
-import Modal from './ui/Modal.jsx'
-import apiFetch from '../api.js'
+import Button from '../ui/Button.jsx'
+import Modal from '../ui/Modal.jsx'
+import apiFetch from '../../api.js'
 
 const IMAGE_MODELS = ['dall-e-3', 'dall-e-2', 'gpt-image-1', 'gpt-4o']
 // official values from OpenAI docs
@@ -10,6 +15,11 @@ const IMAGE_QUALITIES = ['low', 'medium', 'high']
 const IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024']
 const DALL_E2_SIZES = ['256x256', '512x512', '1024x1024']
 
+/**
+ * Render the administration panel.  It periodically refreshes its data so that
+ * multiple users see up-to-date information about the posting queue and
+ * approvers.
+ */
 export default function AdminTab({ instanceId, onDelete, imageModel, setImageModel, imagePrompt, setImagePrompt, imageQuality, setImageQuality, imageSize, setImageSize }) {
   const [username, setUsername] = useState('')
   const [approvers, setApprovers] = useState([])

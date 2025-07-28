@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import ModeToggle from '../ModeToggle.jsx'
+import ModeToggle from '../ModeToggle'
 
 describe('ModeToggle', () => {
   test('initial selection', () => {

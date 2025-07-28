@@ -1,5 +1,11 @@
+/**
+ * Switch between JSON and rendered view modes for scraped posts.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Render radio buttons for toggling the post display mode.
+ */
 export default function ModeToggle({ mode, setMode }) {
   return (
     <div className="mode-toggle">

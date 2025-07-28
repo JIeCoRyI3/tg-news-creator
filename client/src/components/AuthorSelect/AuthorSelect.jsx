@@ -1,5 +1,13 @@
+/**
+ * Dropdown for selecting an Author GPT profile.  The list is provided by the
+ * parent component and contains objects with `id` and `title` properties.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Render a `<select>` element for choosing an author.  The currently selected
+ * author id is stored in `selected`.
+ */
 export default function AuthorSelect({ authors, selected, setSelected }) {
   return (
     <div className="author-select">

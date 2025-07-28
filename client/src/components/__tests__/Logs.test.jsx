@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import Logs from '../Logs.jsx'
+import Logs from '../Logs'
 
 describe('Logs component', () => {
   test('renders container', () => {

@@ -1,3 +1,9 @@
+/**
+ * Entry point for the Express server powering the TG News Creator backend.
+ * The server exposes a REST API for scraping Telegram channels, posting
+ * content via the bot and managing configuration stored on disk.  It also
+ * integrates with OpenAI for text rewriting and image generation.
+ */
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
@@ -104,6 +110,11 @@ let users = [];
 const EMOJIS_FILE = path.join(__dirname, 'emojis.json');
 let emojis = {};
 
+/**
+ * Load instance configuration from disk.  Default values are merged with the
+ * stored data so older files remain compatible.  The approver list is derived
+ * from the loaded instances.
+ */
 function loadInstances() {
   try {
     const data = fs.readFileSync(INSTANCES_FILE, 'utf8');
@@ -127,6 +138,10 @@ function loadInstances() {
   computeApprovers();
 }
 
+/**
+ * Persist the current instances array to disk.  After saving the approver list
+ * is recomputed so any changes take immediate effect.
+ */
 function saveInstances() {
   try {
     fs.writeFileSync(INSTANCES_FILE, JSON.stringify(instances, null, 2));
@@ -136,6 +151,10 @@ function saveInstances() {
   computeApprovers();
 }
 
+/**
+ * Build the global approver username list from all instances.  Usernames are
+ * stored in lower case for easy comparison.
+ */
 function computeApprovers() {
   const set = new Set();
   for (const inst of instances) {
@@ -147,6 +166,10 @@ function computeApprovers() {
   saveApprovers();
 }
 
+/**
+ * Load the list of Telegram sources from disk into memory.  Missing files are
+ * ignored so the server can start with a clean slate on first run.
+ */
 function loadTgSources() {
   try {
     const data = fs.readFileSync(TG_SOURCES_FILE, 'utf8');
@@ -157,6 +180,9 @@ function loadTgSources() {
   }
 }
 
+/**
+ * Persist the current set of Telegram source URLs to disk.
+ */
 function saveTgSources() {
   try {
     fs.writeFileSync(TG_SOURCES_FILE, JSON.stringify(tgSources, null, 2));
@@ -165,6 +191,10 @@ function saveTgSources() {
   }
 }
 
+/**
+ * Load content filters from disk.  Each filter includes a minimum score which
+ * defaults to 7 if not specified in the stored file.
+ */
 function loadFilters() {
   try {
     const data = fs.readFileSync(FILTERS_FILE, 'utf8');
@@ -180,6 +210,9 @@ function loadFilters() {
   }
 }
 
+/**
+ * Persist the filter array to disk for later reload.
+ */
 function saveFilters() {
   try {
     fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2));
@@ -188,6 +221,9 @@ function saveFilters() {
   }
 }
 
+/**
+ * Load author GPT profiles from disk if present.
+ */
 function loadAuthors() {
   try {
     const data = fs.readFileSync(AUTHORS_FILE, 'utf8');
@@ -198,6 +234,9 @@ function loadAuthors() {
   }
 }
 
+/**
+ * Write the authors array to disk.
+ */
 function saveAuthors() {
   try {
     fs.writeFileSync(AUTHORS_FILE, JSON.stringify(authors, null, 2));
@@ -206,6 +245,10 @@ function saveAuthors() {
   }
 }
 
+/**
+ * Load the list of approver usernames from disk and normalise them to lower
+ * case for consistent comparison.
+ */
 function loadApprovers() {
   try {
     const data = fs.readFileSync(APPROVERS_FILE, 'utf8');
@@ -216,6 +259,9 @@ function loadApprovers() {
   }
 }
 
+/**
+ * Persist the approvers array to disk.
+ */
 function saveApprovers() {
   try {
     fs.writeFileSync(APPROVERS_FILE, JSON.stringify(approvers, null, 2));
@@ -224,6 +270,10 @@ function saveApprovers() {
   }
 }
 
+/**
+ * Load dashboard user accounts from disk.  A default root account is created
+ * if the file does not exist so the UI remains accessible.
+ */
 function loadUsers() {
   try {
     const data = fs.readFileSync(USERS_FILE, 'utf8');
@@ -238,6 +288,9 @@ function loadUsers() {
   }
 }
 
+/**
+ * Write user account information back to disk.
+ */
 function saveUsers() {
   try {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
@@ -246,6 +299,10 @@ function saveUsers() {
   }
 }
 
+/**
+ * Load custom emoji mappings from disk.  The file stores an object mapping
+ * emoji characters to Telegram sticker identifiers.
+ */
 function loadEmojis() {
   try {
     const data = fs.readFileSync(EMOJIS_FILE, 'utf8');
@@ -256,6 +313,9 @@ function loadEmojis() {
   }
 }
 
+/**
+ * Persist the custom emoji map to disk.
+ */
 function saveEmojis() {
   try {
     fs.writeFileSync(EMOJIS_FILE, JSON.stringify(emojis, null, 2));
@@ -384,6 +444,11 @@ const openai = new OpenAI({
   ...(proxyUrl ? { fetchOptions: { dispatcher: new ProxyAgent(proxyUrl) } } : {})
 });
 
+/**
+ * Inspect an uploaded image to determine the MIME type and base64 data.
+ * Currently only PNG and JPEG are detected.  The base64 representation is used
+ * when passing the image to OpenAI APIs.
+ */
 async function detectMimeAndData(filePath) {
   const buffer = await fs.promises.readFile(filePath);
   let mime = 'image/jpeg';
@@ -391,6 +456,10 @@ async function detectMimeAndData(filePath) {
   return { mime, data: buffer.toString('base64') };
 }
 
+/**
+ * Convert an uploaded reference image into a `File` object understood by the
+ * OpenAI SDK.  The extension is normalised based on the detected MIME type.
+ */
 async function loadReferenceImage(name) {
   const filePath = path.join(__dirname, 'uploads', name);
   const { mime } = await detectMimeAndData(filePath);
@@ -398,6 +467,12 @@ async function loadReferenceImage(name) {
   return toFile(fs.createReadStream(filePath), name + ext, { type: mime });
 }
 
+/**
+ * Generate an image using the OpenAI API.  The prompt is built from the base
+ * template and the post text.  When reference images are configured they are
+ * uploaded with the request.  The resulting URL or data URI is returned.
+ * The awaiting post is stored so approvers can review the generated image.
+ */
 async function generateImage(model, basePrompt, text, inst, post) {
   const prompt = basePrompt.split('{postText}').join(text);
   const refs = Array.isArray(inst?.referenceImages) ? inst.referenceImages : [];
@@ -432,6 +507,10 @@ async function generateImage(model, basePrompt, text, inst, post) {
   return null;
 }
 
+/**
+ * Replace custom emoji characters in the provided text with Telegram's
+ * `<tg-emoji>` HTML tags so that the bot can send them correctly.
+ */
 function applyCustomEmojis(text) {
   if (!text) return text;
   let result = String(text);
@@ -444,6 +523,12 @@ function applyCustomEmojis(text) {
   return result;
 }
 
+/**
+ * Parse a text message from Telegram in the "emoji pack" format used to upload
+ * custom emojis.  Lines are of the form `:name: - <emoji>` with the actual
+ * emoji represented as a custom emoji entity.  The function returns a mapping
+ * from the plain name to the Telegram emoji id.
+ */
 function parseEmojiPack(msg) {
   const text = msg.text || '';
   const entities = Array.isArray(msg.entities) ? msg.entities : [];
@@ -576,6 +661,11 @@ app.delete('/api/emojis', (req, res) => {
 });
 
 
+/**
+ * Fetch a single Telegram post via the public web interface.  The HTML is
+ * parsed with Cheerio to extract text and media links.  This fallback is used
+ * when more structured scraping via the library fails.
+ */
 async function scrapeTelegramPost(link) {
   const single = link.includes('?') ? `${link}&single` : `${link}?single`;
   try {
@@ -607,6 +697,12 @@ async function scrapeTelegramPost(link) {
   }
 }
 
+/**
+ * Scrape the most recent posts from a Telegram channel.  The function attempts
+ * to use the `telegram_scraper` library first and falls back to manual HTML
+ * scraping if necessary.  Only the last two posts are returned to keep the
+ * feed manageable.
+ */
 async function scrapeTelegramChannel(url) {
   const match = url.match(/t\.me(?:\/s)?\/([^/?]+)/i);
   const channel = match ? match[1] : url.replace(/^@/, '');
@@ -945,6 +1041,11 @@ app.post('/api/awaiting/:id/cancel', (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * Send a message or media file to a Telegram channel.  The helper chooses the
+ * correct bot API method based on whether the payload is a photo, video or
+ * plain text.  Custom emojis are expanded before sending.
+ */
 function postToChannel({ channel, text, media, instanceId }) {
   const processed = applyCustomEmojis(text || '');
   if (!media && (!processed || !processed.trim())) {

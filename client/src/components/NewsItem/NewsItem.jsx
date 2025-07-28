@@ -1,6 +1,13 @@
+/**
+ * Render a single scraped news item.  Depending on the mode it either displays
+ * the raw JSON payload or a minimal Telegram-like preview of the post.
+ */
 import PropTypes from 'prop-types'
 import DOMPurify from 'dompurify'
 
+/**
+ * Display one news item in either JSON or rendered form.
+ */
 export default function NewsItem({ item, mode }) {
   return (
     <div className="news-item">

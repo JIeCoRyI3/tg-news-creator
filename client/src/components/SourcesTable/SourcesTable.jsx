@@ -1,5 +1,11 @@
+/**
+ * Table displaying Telegram sources and their current connection status.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Render the source table where each row is clickable to toggle selection.
+ */
 export default function SourcesTable({ sources, selected, toggle, statuses = {} }) {
   return (
     <table className="sources">

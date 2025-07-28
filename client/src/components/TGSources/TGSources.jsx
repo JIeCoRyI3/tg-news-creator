@@ -1,9 +1,16 @@
+/**
+ * Manage the list of Telegram channel URLs that should be scraped.  The
+ * component also displays basic channel information fetched from the server.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
-import Modal from './ui/Modal.jsx'
-import apiFetch from '../api.js'
+import Button from '../ui/Button.jsx'
+import Modal from '../ui/Modal.jsx'
+import apiFetch from '../../api.js'
 
+/**
+ * Render the TG sources UI where users can add and remove channel URLs.
+ */
 export default function TGSources({ urls, addUrl, removeUrl }) {
   const [value, setValue] = useState('')
   const [info, setInfo] = useState({})

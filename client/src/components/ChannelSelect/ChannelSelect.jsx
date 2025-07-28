@@ -1,5 +1,12 @@
+/**
+ * Checkbox list for choosing which Telegram channels a post should be sent to.
+ */
 import PropTypes from 'prop-types'
 
+/**
+ * Render checkboxes for each available channel.  The component simply keeps
+ * track of the selected channel ids in the parent component's state.
+ */
 export default function ChannelSelect({ channels, selected, setSelected }) {
   const toggle = (id) => {
     setSelected(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])

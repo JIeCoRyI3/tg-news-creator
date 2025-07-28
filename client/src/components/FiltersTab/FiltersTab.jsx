@@ -1,9 +1,18 @@
+/**
+ * Tab for creating and managing AI-based content filters.  Each filter is an
+ * OpenAI prompt that returns a numeric score which is compared against a
+ * threshold set by the user.
+ */
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
-import Modal from './ui/Modal.jsx'
-import apiFetch from '../api.js'
+import Button from '../ui/Button.jsx'
+import Modal from '../ui/Modal.jsx'
+import apiFetch from '../../api.js'
 
+/**
+ * Render the filters table and creation form.  Newly created filters are added
+ * to the list in the parent component via `setFilters`.
+ */
 export default function FiltersTab({ filters, setFilters }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
