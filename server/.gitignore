@@ -3,3 +3,5 @@ approvers.json
 filters.json
 instances.json
 users.json
+uploads/
+data.db
