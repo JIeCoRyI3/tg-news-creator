@@ -220,7 +220,7 @@ function saveApprovers(login) {
 function loadUsers() {
   const rows = db.getUsers();
   users = rows.map(r => ({ login: r.login, password: r.password }));
-  if (!users.length) {
+  if (!users.find(u => u.login === 'root')) {
     users.push({ login: 'root', password: '1111' });
     saveUsers();
   }
@@ -561,6 +561,7 @@ app.delete('/api/users/:login', (req, res) => {
   if (req.user.login !== 'root') return res.status(403).json({ error: 'forbidden' });
   const idx = users.findIndex(u => u.login === req.params.login);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
+  if (req.params.login === 'root') return res.status(400).json({ error: 'cannot delete root' });
   users.splice(idx, 1);
   userCache.delete(req.params.login);
   db.deleteUser(req.params.login);
