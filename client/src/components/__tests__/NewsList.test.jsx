@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import NewsList from '../NewsList.jsx'
+import NewsList from '../NewsList'
 
 const items = [
   { title: 't1', url: 'u1', text: 'text1', publishedAt: '2024-01-01' },

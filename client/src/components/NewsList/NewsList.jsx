@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import NewsItem from './NewsItem.jsx'
+import NewsItem from '../NewsItem'
 
 export default function NewsList({ news, mode }) {
   return (

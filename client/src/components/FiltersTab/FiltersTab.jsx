@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import Button from './ui/Button.jsx'
-import Modal from './ui/Modal.jsx'
-import apiFetch from '../api.js'
+import Button from '../ui/Button.jsx'
+import Modal from '../ui/Modal.jsx'
+import apiFetch from '../../api.js'
 
-export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuffix }) {
+export default function FiltersTab({ filters, setFilters }) {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [model, setModel] = useState('gpt-3.5-turbo')
@@ -12,7 +12,8 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
   const [instructions, setInstructions] = useState('')
   const [_files, setFiles] = useState([])
   const [vectorId, setVectorId] = useState(null)
-  const [openAuthor, setOpenAuthor] = useState(null)
+  const [minScore, setMinScore] = useState(7)
+  const [openFilter, setOpenFilter] = useState(null)
 
   useEffect(() => {
     apiFetch('/api/models')
@@ -31,19 +32,21 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
     fd.append('title', title)
     fd.append('model', model)
     fd.append('instructions', instructions)
+    fd.append('min_score', minScore)
     if (vectorId) fd.append('vector_store_id', vectorId)
-    apiFetch('/api/authors', {
+    apiFetch('/api/filters', {
       method: 'POST',
       body: fd
     })
       .then(r => r.json())
       .then(data => {
-        setAuthors(prev => [...prev, data])
+        setFilters(prev => [...prev, data])
         setShowForm(false)
         setTitle('')
         setInstructions('')
         setFiles([])
         setVectorId(null)
+        setMinScore(7)
       })
       .catch(() => {})
   }
@@ -69,19 +72,11 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
 
   return (
     <div className="filters-tab">
-      <div className="tg-input">
-        <textarea
-          value={postSuffix}
-          onChange={e => setPostSuffix(e.target.value)}
-          placeholder="HTML snippet to append to each post"
-          rows={2}
-        />
-      </div>
       <ul>
-        {authors.map(a => (
-          <li key={a.id}>
-            <span onClick={() => setOpenAuthor(a)} style={{ cursor: 'pointer' }}>
-              {a.title}
+        {filters.map(f => (
+          <li key={f.id}>
+            <span onClick={() => setOpenFilter(f)} style={{ cursor: 'pointer' }}>
+              {f.title}
             </span>
           </li>
         ))}
@@ -102,22 +97,39 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
             )}
           </select>
           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="Instructions" />
+          <input type="number" value={minScore} onChange={e => setMinScore(Number(e.target.value))} placeholder="Min score" />
           <input type="file" multiple onChange={e => uploadFiles(Array.from(e.target.files))} />
           <Button onClick={create}>Save</Button>
           <Button onClick={() => setShowForm(false)}>Cancel</Button>
         </div>
       ) : (
-        <Button onClick={() => setShowForm(true)}>Create an author</Button>
+        <Button onClick={() => setShowForm(true)}>Create a filter</Button>
       )}
       <Modal
-        open={!!openAuthor}
-        onClose={() => setOpenAuthor(null)}
+        open={!!openFilter}
+        onClose={() => setOpenFilter(null)}
+        actions={openFilter && (
+          <Button onClick={() => {
+            apiFetch(`/api/filters/${openFilter.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ min_score: openFilter.min_score })
+            }).then(r => r.json())
+              .then(data => {
+                setFilters(prev => prev.map(f => f.id === data.id ? data : f))
+                setOpenFilter(null)
+              }).catch(() => {})
+          }}>Save</Button>
+        )}
       >
-        {openAuthor && (
+        {openFilter && (
           <div>
-            <h4>{openAuthor.title}</h4>
-            <div>Model: {openAuthor.model}</div>
-            <pre style={{ whiteSpace: 'pre-wrap' }}>{openAuthor.instructions}</pre>
+            <h4>{openFilter.title}</h4>
+            <div>Model: {openFilter.model}</div>
+            <div>
+              Min score: <input type="number" value={openFilter.min_score} onChange={e => setOpenFilter({ ...openFilter, min_score: Number(e.target.value) })} />
+            </div>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>{openFilter.instructions}</pre>
           </div>
         )}
       </Modal>
@@ -125,9 +137,7 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
   )
 }
 
-AuthorsTab.propTypes = {
-  authors: PropTypes.arrayOf(PropTypes.object).isRequired,
-  setAuthors: PropTypes.func.isRequired,
-  postSuffix: PropTypes.string.isRequired,
-  setPostSuffix: PropTypes.func.isRequired
+FiltersTab.propTypes = {
+  filters: PropTypes.arrayOf(PropTypes.object).isRequired,
+  setFilters: PropTypes.func.isRequired
 }
