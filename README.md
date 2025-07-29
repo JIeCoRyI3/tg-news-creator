@@ -99,6 +99,19 @@ curl -F attachments=@notes.txt \
 Run `npm run database-vis` to launch a small server showing the current
 contents of `server/data.db` at <http://localhost:4000>.
 
+### Docker Compose
+
+The repository includes a `docker-compose.yml` that builds the server and
+client into a single container. Start everything using:
+
+```bash
+docker compose up --build
+```
+
+The application will be available on **http://localhost:3001**. Proxy related
+environment variables such as `http_proxy` are forwarded to the container so the
+server can reach external services through your proxy.
+
 ## Sharing your local server
 
 You can quickly share the app while your laptop is running using [localtunnel](https://github.com/localtunnel/localtunnel).
