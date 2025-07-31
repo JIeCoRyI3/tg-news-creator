@@ -527,6 +527,7 @@ app.use((req, res, next) => {
   }
 });
 const PORT = process.env.PORT || 3001;
+const DOMAIN = process.env.DOMAIN || `http://localhost:${PORT}`;
 
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(CLIENT_DIST)) {
@@ -538,7 +539,7 @@ const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.0',
     info: { title: 'News API', version: '1.0.0' },
-    servers: [{ url: `http://localhost:${PORT}` }]
+    servers: [{ url: DOMAIN }]
   },
   apis: [__filename]
 });
