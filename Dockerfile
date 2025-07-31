@@ -16,5 +16,6 @@ RUN npm run build --prefix client
 FROM node:20
 WORKDIR /app
 COPY --from=builder /app ./
+ENV DOMAIN=http://localhost:3001
 EXPOSE 3001
 CMD ["npm", "start", "--prefix", "server"]
