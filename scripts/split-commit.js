@@ -39,7 +39,17 @@ const fs = require('fs');
       }
     })
   });
-  const data = await response.json();
+  const responseText = await response.text();
+  console.log('Full OpenAI API response:', responseText);
+
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (err) {
+    console.error('Failed to parse OpenAI API response as JSON:', responseText);
+    process.exit(1);
+  }
+
   const content = data.output_text || '';
   console.log('GPT response:', content);
 
