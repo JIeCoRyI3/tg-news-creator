@@ -8,7 +8,7 @@ const fs = require('fs');
   const diff = execSync(`git diff origin/${baseBranch}...HEAD`, { encoding: 'utf8' });
   const prDescription = process.env.PR_DESCRIPTION || '';
 
-  const prompt = `PR Description:\n${prDescription}\n\nDiff:\n${diff}\n\nSplit the diff into multiple small commits. Return JSON object {"commits": [{"message": string, "patch": string}]}. Patches must apply sequentially starting from the base branch.`;
+  const prompt = `PR Description:\n${prDescription}\n\nDiff:\n${diff}\n\nSplit the diff into multiple small commits. Return JSON object {"commits": [{"message": string, "patch": string}]}.\nEach patch must be a valid unified diff starting with "diff --git" and ending with a newline.\nPatches must apply sequentially starting from the base branch and, when combined in order, must exactly reproduce the original diff.`;
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -103,4 +103,10 @@ const fs = require('fs');
     execSync(`git commit -m ${JSON.stringify(commit.message)}`);
     fs.unlinkSync(patchFile);
   });
+
+  const finalDiff = execSync(`git diff origin/${baseBranch}...HEAD`, { encoding: 'utf8' });
+  if (finalDiff.trim() !== diff.trim()) {
+    console.error('Combined patches do not match the original diff');
+    process.exit(1);
+  }
 })();
