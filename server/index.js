@@ -1451,6 +1451,15 @@ if (fs.existsSync(CLIENT_DIST)) {
   });
 }
 
-app.listen(PORT, () => {
-  log(`Server running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = {
+  getStore,
+  applyCustomEmojis,
+  applyCustomEmojisWithInfo,
+  parseEmojiPack,
+};
