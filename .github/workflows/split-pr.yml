@@ -31,6 +31,15 @@ jobs:
         run: |
           git config user.name "${{ github.event.pull_request.user.login }}"
           git config user.email "${{ github.event.pull_request.user.id }}+${{ github.event.pull_request.user.login }}@users.noreply.github.com"
+      - name: Setup Node.js
+        if: steps.commits.outputs.count == '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        if: steps.commits.outputs.count == '1'
+        run: npm ci
       - name: Split commit using GPT
         if: steps.commits.outputs.count == '1'
         env:
