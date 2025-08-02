@@ -57,7 +57,21 @@ const fs = require('fs');
     process.exit(1);
   }
 
-  const content = data.output_text || '';
+  function extractContent(payload) {
+    if (typeof payload?.output_text === 'string') {
+      return payload.output_text;
+    }
+    const message = Array.isArray(payload?.output) ? payload.output[0] : null;
+    if (!message || !Array.isArray(message.content)) return '';
+    const textPart = message.content.find(part => part.type === 'output_text');
+    return textPart?.text || '';
+  }
+
+  const content = extractContent(data);
+  if (!content) {
+    console.error('No textual content found in OpenAI response');
+    process.exit(1);
+  }
   console.log('GPT response:', content);
 
   let commits;
@@ -65,9 +79,11 @@ const fs = require('fs');
     const parsed = JSON.parse(content);
     commits = Array.isArray(parsed.commits) ? parsed.commits : [];
   } catch (err) {
-    console.error('Failed to parse GPT response:', content);
+    console.error('Failed to parse GPT response as JSON:', content);
     process.exit(1);
   }
+
+  console.log(`Parsed ${commits.length} commits from GPT response`);
 
   execSync('git reset --hard origin/main');
 
