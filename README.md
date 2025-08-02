@@ -107,6 +107,7 @@ client into a single container. Start everything using:
 ```bash
 docker compose up --build
 ```
+test change
 
 The application will be available on **http://localhost:3001**. Proxy related
 environment variables such as `http_proxy` are forwarded to the container so the
