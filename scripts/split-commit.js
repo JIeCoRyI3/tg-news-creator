@@ -57,12 +57,12 @@ function logBlock(title, content, logger = console.log) {
     },
     body: JSON.stringify({
       model: 'gpt-4o',
+      attachments: [{ file_id: fileId }],
       input: [{
         role: 'user',
         content: [
           { type: 'input_text', text: prompt }
-        ],
-        attachments: [{ file_id: fileId }]
+        ]
       }],
       text: {
         format: {
