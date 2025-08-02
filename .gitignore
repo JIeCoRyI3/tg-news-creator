@@ -4,3 +4,4 @@ server/node_modules
 .env
 data.db
 server/uploads/
+openai.key
