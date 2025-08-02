@@ -108,6 +108,8 @@ client into a single container. Start everything using:
 docker compose up --build
 ```
 
+Change test
+
 The application will be available on **http://localhost:3001**. Proxy related
 environment variables such as `http_proxy` are forwarded to the container so the
 server can reach external services through your proxy.
