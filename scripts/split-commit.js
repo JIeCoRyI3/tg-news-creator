@@ -60,9 +60,9 @@ function logBlock(title, content, logger = console.log) {
       input: [{
         role: 'user',
         content: [
-          { type: 'input_text', text: prompt }
-        ],
-        attachments: [{ file_id: fileId }]
+          { type: 'input_text', text: prompt },
+          { type: 'input_file', file_id: fileId }
+        ]
       }],
       text: {
         format: {
