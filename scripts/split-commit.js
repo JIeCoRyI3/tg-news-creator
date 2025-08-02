@@ -7,7 +7,7 @@ const fs = require('fs');
   const diff = execSync('git diff origin/main...HEAD', { encoding: 'utf8' });
   const prDescription = process.env.PR_DESCRIPTION || '';
 
-  const prompt = `PR Description:\n${prDescription}\n\nDiff:\n${diff}\n\nSplit the diff into multiple small commits. Return JSON array where each item has {"message": string, "patch": string}. Patches must apply sequentially starting from the base branch.`;
+  const prompt = `PR Description:\n${prDescription}\n\nDiff:\n${diff}\n\nSplit the diff into multiple small commits. Return JSON object {"commits": [{"message": string, "patch": string}]}. Patches must apply sequentially starting from the base branch.`;
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -23,16 +23,23 @@ const fs = require('fs');
           type: 'json_schema',
           name: 'commit_splits',
           schema: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                message: { type: 'string' },
-                patch: { type: 'string' }
-              },
-              required: ['message', 'patch'],
-              additionalProperties: false
-            }
+            type: 'object',
+            properties: {
+              commits: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    patch: { type: 'string' }
+                  },
+                  required: ['message', 'patch'],
+                  additionalProperties: false
+                }
+              }
+            },
+            required: ['commits'],
+            additionalProperties: false
           },
           strict: true
         }
@@ -55,7 +62,8 @@ const fs = require('fs');
 
   let commits;
   try {
-    commits = JSON.parse(content);
+    const parsed = JSON.parse(content);
+    commits = Array.isArray(parsed.commits) ? parsed.commits : [];
   } catch (err) {
     console.error('Failed to parse GPT response:', content);
     process.exit(1);
