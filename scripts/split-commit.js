@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
+const PDFDocument = require('pdfkit');
 // Use built-in fetch and FormData available in Node.js >=18
 // to avoid external dependencies like axios or form-data.
 
@@ -7,6 +8,19 @@ function logBlock(title, content, logger = console.log) {
   logger('---');
   logger(title);
   if (content !== undefined) logger(content);
+}
+
+function textToPdf(text, filePath) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ autoFirstPage: false });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+    doc.addPage();
+    doc.font('Courier').fontSize(10).text(text);
+    doc.end();
+    stream.on('finish', resolve);
+    stream.on('error', reject);
+  });
 }
 
 (async () => {
@@ -17,13 +31,13 @@ function logBlock(title, content, logger = console.log) {
   const prDescription = process.env.PR_DESCRIPTION || '';
 
   logBlock('Original diff from base branch to HEAD:', diff);
-  const diffFile = 'diff.txt';
-  fs.writeFileSync(diffFile, diff);
+  const diffFile = 'diff.pdf';
+  await textToPdf(diff, diffFile);
 
   const uploadForm = new FormData();
   uploadForm.append('purpose', 'assistants');
   const fileBuffer = fs.readFileSync(diffFile);
-  uploadForm.append('file', new Blob([fileBuffer], { type: 'text/plain' }), diffFile);
+  uploadForm.append('file', new Blob([fileBuffer], { type: 'application/pdf' }), diffFile);
   let uploadJson;
   try {
     const uploadRes = await fetch('https://api.openai.com/v1/files', {
@@ -60,9 +74,9 @@ function logBlock(title, content, logger = console.log) {
       input: [{
         role: 'user',
         content: [
-          { type: 'input_text', text: prompt }
-        ],
-        attachments: [{ file_id: fileId }]
+          { type: 'input_text', text: prompt },
+          { type: 'input_file', file_id: fileId }
+        ]
       }],
       text: {
         format: {
