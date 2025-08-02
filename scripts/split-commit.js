@@ -41,6 +41,7 @@ const fs = require('fs');
   });
   const data = await response.json();
   const content = data.output_text || '';
+  console.log('GPT response:', content);
 
   let commits;
   try {
