@@ -31,7 +31,7 @@ const fs = require('fs');
                   type: 'object',
                   properties: {
                     message: { type: 'string' },
-                    patch: { type: 'string', format: 'diff' }
+                    patch: { type: 'string', pattern: '^diff --git ' }
                   },
                   required: ['message', 'patch'],
                   additionalProperties: false
