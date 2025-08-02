@@ -18,9 +18,9 @@ const fs = require('fs');
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       input: prompt,
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
+      text: {
+        format: {
+          type: 'json_schema',
           name: 'commit_splits',
           schema: {
             type: 'array',
