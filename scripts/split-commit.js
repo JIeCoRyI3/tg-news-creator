@@ -31,7 +31,7 @@ const fs = require('fs');
                   type: 'object',
                   properties: {
                     message: { type: 'string' },
-                    patch: { type: 'string' }
+                    patch: { type: 'string', format: 'diff' }
                   },
                   required: ['message', 'patch'],
                   additionalProperties: false
@@ -89,7 +89,14 @@ const fs = require('fs');
 
   commits.forEach((commit, index) => {
     const patchFile = `patch_${index}.diff`;
-    fs.writeFileSync(patchFile, commit.patch);
+    const patchContent = commit.patch.endsWith('\n') ? commit.patch : `${commit.patch}\n`;
+    fs.writeFileSync(patchFile, patchContent);
+    try {
+      execSync(`git apply --check ${patchFile}`);
+    } catch (err) {
+      console.error(`Patch validation failed for ${patchFile}:`, patchContent);
+      throw err;
+    }
     execSync(`git apply ${patchFile}`);
     execSync('git add -A');
     execSync(`git commit -m ${JSON.stringify(commit.message)}`);
