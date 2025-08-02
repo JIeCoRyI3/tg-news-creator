@@ -2,7 +2,7 @@ name: Split PR Commit
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     types: [opened, synchronize]
 
 jobs:
