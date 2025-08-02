@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
-const axios = require('axios');
-const FormData = require('form-data');
+// Use built-in fetch and FormData available in Node.js >=18
+// to avoid external dependencies like axios or form-data.
 
 function logBlock(title, content, logger = console.log) {
   logger('---');
@@ -22,18 +22,23 @@ function logBlock(title, content, logger = console.log) {
 
   const uploadForm = new FormData();
   uploadForm.append('purpose', 'assistants');
-  uploadForm.append('file', fs.createReadStream(diffFile));
+  const fileBuffer = fs.readFileSync(diffFile);
+  uploadForm.append('file', new Blob([fileBuffer], { type: 'text/plain' }), diffFile);
   let uploadJson;
   try {
-    const uploadRes = await axios.post('https://api.openai.com/v1/files', uploadForm, {
+    const uploadRes = await fetch('https://api.openai.com/v1/files', {
+      method: 'POST',
       headers: {
-        ...uploadForm.getHeaders(),
         Authorization: `Bearer ${apiKey}`
-      }
+      },
+      body: uploadForm
     });
-    uploadJson = uploadRes.data;
+    uploadJson = await uploadRes.json();
+    if (!uploadRes.ok) {
+      throw new Error(uploadJson.error?.message || uploadRes.statusText);
+    }
   } catch (err) {
-    console.error('Failed to upload diff file:', err.response?.data || err.message);
+    console.error('Failed to upload diff file:', err.message);
     process.exit(1);
   }
   if (!uploadJson.id) {
