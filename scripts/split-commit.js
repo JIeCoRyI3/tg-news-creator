@@ -1,13 +1,22 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 
+function logBlock(title, content, logger = console.log) {
+  logger('---');
+  logger(title);
+  if (content !== undefined) logger(content);
+}
+
 (async () => {
   const apiKeyPath = process.env.OPENAI_API_KEY_FILE || 'openai.key';
   const apiKey = fs.readFileSync(apiKeyPath, 'utf8').trim();
-  const diff = execSync('git diff origin/main...HEAD', { encoding: 'utf8' });
+  const baseBranch = process.env.BASE_BRANCH || 'main';
+  const diff = execSync(`git diff origin/${baseBranch}...HEAD`, { encoding: 'utf8' });
   const prDescription = process.env.PR_DESCRIPTION || '';
 
-  const prompt = `PR Description:\n${prDescription}\n\nDiff:\n${diff}\n\nSplit the diff into multiple small commits. Return JSON object {"commits": [{"message": string, "patch": string}]}. Patches must apply sequentially starting from the base branch.`;
+  logBlock('Original diff from base branch to HEAD:', diff);
+
+  const prompt = `PR Description:\n${prDescription}\n\nDiff:\n${diff}\n\nSplit the diff into multiple small commits. Return JSON object {"commits": [{"message": string, "patch": string}]}.\nEach patch must be a valid unified diff starting with "diff --git" and ending with a newline.\nPatches must apply sequentially starting from the base branch and, when combined in order, must exactly reproduce the original diff.`;
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -47,7 +56,7 @@ const fs = require('fs');
     })
   });
   const responseText = await response.text();
-  console.log('Full OpenAI API response:', responseText);
+  logBlock('Full OpenAI API response:', responseText);
 
   let data;
   try {
@@ -72,7 +81,7 @@ const fs = require('fs');
     console.error('No textual content found in OpenAI response');
     process.exit(1);
   }
-  console.log('GPT response:', content);
+  logBlock('GPT response:', content);
 
   let commits;
   try {
@@ -83,11 +92,12 @@ const fs = require('fs');
     process.exit(1);
   }
 
-  console.log(`Parsed ${commits.length} commits from GPT response`);
+  logBlock(`Parsed ${commits.length} commits from GPT response`);
 
-  execSync('git reset --hard origin/main');
+  execSync(`git reset --hard origin/${baseBranch}`);
 
   commits.forEach((commit, index) => {
+    logBlock(`Commit ${index + 1}: ${commit.message}`, `Patch:\n${commit.patch}`);
     const patchFile = `patch_${index}.diff`;
     const patchContent = commit.patch.endsWith('\n') ? commit.patch : `${commit.patch}\n`;
     fs.writeFileSync(patchFile, patchContent);
@@ -102,4 +112,25 @@ const fs = require('fs');
     execSync(`git commit -m ${JSON.stringify(commit.message)}`);
     fs.unlinkSync(patchFile);
   });
+
+  const finalDiff = execSync(`git diff origin/${baseBranch}...HEAD`, { encoding: 'utf8' });
+  logBlock('Final diff after applying patches:', finalDiff);
+  if (finalDiff.trim() !== diff.trim()) {
+    logBlock('Combined patches do not match the original diff', undefined, console.error);
+    const origFile = 'original.diff';
+    const finalFile = 'final.diff';
+    fs.writeFileSync(origFile, diff);
+    fs.writeFileSync(finalFile, finalDiff);
+    try {
+      const comparison = execSync(`diff -u ${origFile} ${finalFile}`, { encoding: 'utf8' });
+      logBlock('Difference between original and final diff:', comparison, console.error);
+    } catch (err) {
+      const output = err.stdout || err.stderr || '';
+      logBlock('Difference between original and final diff:', output, console.error);
+    } finally {
+      fs.unlinkSync(origFile);
+      fs.unlinkSync(finalFile);
+    }
+    process.exit(1);
+  }
 })();
