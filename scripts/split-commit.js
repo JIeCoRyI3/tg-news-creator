@@ -17,11 +17,30 @@ const fs = require('fs');
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      input: prompt
+      input: prompt,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'commit_splits',
+          schema: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' },
+                patch: { type: 'string' }
+              },
+              required: ['message', 'patch'],
+              additionalProperties: false
+            }
+          },
+          strict: true
+        }
+      }
     })
   });
   const data = await response.json();
-  const content = data.output?.[0]?.content?.[0]?.text || '';
+  const content = data.output_text || '';
 
   let commits;
   try {
