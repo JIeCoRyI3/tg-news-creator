@@ -50,3 +50,9 @@ jobs:
       - name: Push rewritten commits
         if: steps.commits.outputs.count == '1'
         run: git push --force-with-lease origin HEAD:${{ github.event.pull_request.head.ref }}
+      - name: Upload script logs
+        if: steps.commits.outputs.count == '1' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-logs
+          path: logs
