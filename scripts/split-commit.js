@@ -1,13 +1,25 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 const PDFDocument = require('pdfkit');
 // Use built-in fetch and FormData available in Node.js >=18
 // to avoid external dependencies like axios or form-data.
 
 function logBlock(title, content, logger = console.log) {
-  logger('---');
-  logger(title);
-  if (content !== undefined) logger(content);
+  const separator = '_________________________';
+  const lines = [separator, title];
+  if (content !== undefined) lines.push(content);
+  lines.push(separator);
+  const message = lines.join('\n');
+
+  logger(message);
+
+  const dir = 'logs';
+  fs.mkdirSync(dir, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/:/g, '-');
+  const action = title.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
+  const fileName = `${timestamp}-${action}.txt`;
+  fs.writeFileSync(path.join(dir, fileName), `${message}\n`);
 }
 
 function textToPdf(text, filePath) {
