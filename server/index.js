@@ -80,6 +80,10 @@ const DEFAULT_POST_SUFFIX = '';
 const userCache = new Map(); // login -> {instances, tgSources, filters, authors, emojis, approvers}
 const allApprovers = new Set();
 
+/**
+ * Recompute the global set of approver usernames from the per-user
+ * stores.
+ */
 function updateAllApprovers() {
   allApprovers.clear();
   for (const store of userCache.values()) {
@@ -87,6 +91,9 @@ function updateAllApprovers() {
   }
 }
 
+/**
+ * Lazily initialize and return the data store for a given login.
+ */
 function getStore(login) {
   if (!userCache.has(login)) {
     userCache.set(login, {
@@ -106,6 +113,10 @@ function getStore(login) {
 // Keep track of posts we've already scraped to avoid logging duplicates
 const scrapedPostUrls = new Set();
 
+/**
+ * Log a message to the console and broadcast it via the botEvents
+ * emitter so connected clients can display it.
+ */
 function log(message, instanceId) {
   const prefix = instanceId ? `[${instanceId}] ` : '';
   console.log(prefix + message);
@@ -169,17 +180,20 @@ function computeApprovers(login) {
   updateAllApprovers();
 }
 
+/** Load persisted Telegram sources for a user into memory. */
 function loadTgSources(login) {
   const store = getStore(login);
   const parsed = db.getData(login, 'tgSources');
   if (Array.isArray(parsed)) store.tgSources = parsed;
 }
 
+/** Persist Telegram sources for a user. */
 function saveTgSources(login) {
   const store = getStore(login);
   db.setData(login, 'tgSources', store.tgSources);
 }
 
+/** Load content filters for a user and ensure sane defaults. */
 function loadFilters(login) {
   const store = getStore(login);
   const parsed = db.getData(login, 'filters');
@@ -191,33 +205,39 @@ function loadFilters(login) {
   }
 }
 
+/** Persist content filters for a user. */
 function saveFilters(login) {
   const store = getStore(login);
   db.setData(login, 'filters', store.filters);
 }
 
+/** Load author assistants for a user. */
 function loadAuthors(login) {
   const store = getStore(login);
   const parsed = db.getData(login, 'authors');
   if (Array.isArray(parsed)) store.authors = parsed;
 }
 
+/** Persist author assistants for a user. */
 function saveAuthors(login) {
   const store = getStore(login);
   db.setData(login, 'authors', store.authors);
 }
 
+/** Load the list of approver usernames for a user. */
 function loadApprovers(login) {
   const store = getStore(login);
   const parsed = db.getData(login, 'approvers');
   if (Array.isArray(parsed)) store.approvers = parsed;
 }
 
+/** Persist the approver list for a user. */
 function saveApprovers(login) {
   const store = getStore(login);
   db.setData(login, 'approvers', store.approvers);
 }
 
+/** Load all user accounts from the database into memory. */
 function loadUsers() {
   const rows = db.getUsers();
   users = rows.map(r => ({ login: r.login, password: r.password }));
@@ -227,6 +247,7 @@ function loadUsers() {
   }
 }
 
+/** Persist in-memory user accounts to the database. */
 function saveUsers() {
   const existing = new Set(db.getUsers().map(u => u.login));
   for (const u of users) {
@@ -237,12 +258,14 @@ function saveUsers() {
   }
 }
 
+/** Load custom emoji mappings for a user. */
 function loadEmojis(login) {
   const store = getStore(login);
   const parsed = db.getData(login, 'emojis');
   if (parsed && typeof parsed === 'object') store.emojis = parsed;
 }
 
+/** Persist custom emoji mappings for all users. */
 function saveEmojis() {
   for (const [login, store] of userCache.entries()) {
     db.setData(login, 'emojis', store.emojis);
@@ -382,6 +405,9 @@ const openai = new OpenAI({
   ...(proxyUrl ? { fetchOptions: { dispatcher: new ProxyAgent(proxyUrl) } } : {})
 });
 
+/**
+ * Determine the mime type of a file and return its Base64 contents.
+ */
 async function detectMimeAndData(filePath) {
   const buffer = await fs.promises.readFile(filePath);
   let mime = 'image/jpeg';
@@ -389,6 +415,9 @@ async function detectMimeAndData(filePath) {
   return { mime, data: buffer.toString('base64') };
 }
 
+/**
+ * Load a reference image from disk and wrap it for the OpenAI API.
+ */
 async function loadReferenceImage(name) {
   const filePath = path.join(__dirname, 'uploads', name);
   const { mime } = await detectMimeAndData(filePath);
@@ -396,6 +425,10 @@ async function loadReferenceImage(name) {
   return toFile(fs.createReadStream(filePath), name + ext, { type: mime });
 }
 
+/**
+ * Generate an image using OpenAI based on the provided prompt and
+ * optional reference images.
+ */
 async function generateImage(model, basePrompt, text, inst, post) {
   const prompt = basePrompt.split('{postText}').join(text);
   const refs = Array.isArray(inst?.referenceImages) ? inst.referenceImages : [];
@@ -451,6 +484,10 @@ function applyCustomEmojis(text, login) {
   return result;
 }
 
+/**
+ * Variant of applyCustomEmojis that also returns the list of emoji
+ * characters that were replaced.
+ */
 function applyCustomEmojisWithInfo(text, login) {
   if (!text) return { text, replaced: [] };
   const map = login ? getStore(login).emojis : {};
@@ -653,6 +690,10 @@ app.delete('/api/emojis', (req, res) => {
 });
 
 
+/**
+ * Scrape a single Telegram post page and extract text, media and
+ * timestamp information.
+ */
 async function scrapeTelegramPost(link) {
   const single = link.includes('?') ? `${link}&single` : `${link}?single`;
   try {
@@ -684,6 +725,10 @@ async function scrapeTelegramPost(link) {
   }
 }
 
+/**
+ * Scrape the latest posts from a Telegram channel, using the
+ * `telegram-scraper` library or falling back to manual HTML parsing.
+ */
 async function scrapeTelegramChannel(url) {
   const match = url.match(/t\.me(?:\/s)?\/([^/?]+)/i);
   const channel = match ? match[1] : url.replace(/^@/, '');

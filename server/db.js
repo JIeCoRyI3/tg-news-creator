@@ -22,20 +22,36 @@ db.prepare(`CREATE TABLE IF NOT EXISTS user_data (
 )` ).run();
 
 module.exports = {
+  /**
+   * Retrieve all user accounts stored in the database.
+   */
   getUsers() {
     return db.prepare('SELECT login,password FROM users').all();
   },
+  /**
+   * Insert a new user record.
+   */
   addUser(login, password) {
     db.prepare('INSERT INTO users (login,password) VALUES (?,?)').run(login, password);
   },
+  /**
+   * Delete a user and all associated data.
+   */
   deleteUser(login) {
     db.prepare('DELETE FROM users WHERE login=?').run(login);
     db.prepare('DELETE FROM user_data WHERE login=?').run(login);
   },
+  /**
+   * Fetch typed JSON data for a given user.
+   */
   getData(login, type) {
     const row = db.prepare('SELECT data FROM user_data WHERE login=? AND type=?').get(login, type);
     return row ? JSON.parse(row.data) : null;
   },
+  /**
+   * Persist typed JSON data for a user, inserting or updating as
+   * needed.
+   */
   setData(login, type, value) {
     const data = JSON.stringify(value);
     db.prepare('INSERT INTO user_data (login,type,data) VALUES (?,?,?) ON CONFLICT(login,type) DO UPDATE SET data=excluded.data').run(login, type, data);
