@@ -14,10 +14,10 @@ jobs:
           node-version: 20
           cache: 'npm'
       - name: Install server deps
-        run: npm ci --prefix server
+        run: npm install --package-lock=false --prefix server
       - name: Run server tests
         run: npm test --prefix server
       - name: Install client deps
-        run: npm ci --prefix client
+        run: npm install --package-lock=false --prefix client
       - name: Run client tests
         run: npm test --prefix client -- --run
