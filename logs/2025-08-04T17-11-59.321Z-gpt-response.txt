@@ -1,0 +1,4 @@
+_________________________
+GPT response:
+{"commits":[{"message":"Update workflow to trigger on 'codex' label and swap labels post-completion","files":[{"path":".github/workflows/split-pr.yml","hunks":[1,2]},{"path":"scripts/split-commit.js","hunks":[1,2,3]}]}]}
+_________________________
