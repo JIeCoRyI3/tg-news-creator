@@ -20,7 +20,11 @@ const { telegram_scraper } = require('telegram-scraper');
 const fs = require('fs');
 const multer = require('multer');
 const db = require('./db');
-const emoji = require('node-emoji');
+const {
+  applyCustomEmojis: applyCustomEmojisBase,
+  applyCustomEmojisWithInfo: applyCustomEmojisWithInfoBase,
+  parseEmojiPack
+} = require('./emoji-utils');
 let listChannels,
     listInstanceChannels,
     addChannel,
@@ -439,68 +443,15 @@ async function generateImage(model, basePrompt, text, inst, post) {
  * @returns {string} Text with custom emoji HTML inserted
  */
 function applyCustomEmojis(text, login) {
-  if (!text) return text;
   const map = login ? getStore(login).emojis : {};
-  let result = String(text);
-  for (const [emoji, id] of Object.entries(map)) {
-    if (!emoji || !id) continue;
-    const escaped = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(escaped, 'g');
-    result = result.replace(re, `<tg-emoji emoji-id="${id}">${emoji}</tg-emoji>`);
-  }
-  return result;
+  return applyCustomEmojisBase(text, map);
 }
 
 function applyCustomEmojisWithInfo(text, login) {
-  if (!text) return { text, replaced: [] };
   const map = login ? getStore(login).emojis : {};
-  let result = String(text);
-  const replaced = [];
-  for (const [emoji, id] of Object.entries(map)) {
-    if (!emoji || !id) continue;
-    const escaped = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(escaped, 'g');
-    if (re.test(result)) {
-      result = result.replace(re, `<tg-emoji emoji-id="${id}">${emoji}</tg-emoji>`);
-      replaced.push(emoji);
-    }
-  }
-  return { text: result, replaced };
+  return applyCustomEmojisWithInfoBase(text, map);
 }
 
-/**
- * Parse lines of the form `:smile: - \uE123` from a Telegram message and
- * build a map of regular emoji to custom emoji IDs.
- *
- * @param {Object} msg Telegram message containing `text` and `entities`
- * @returns {Object<string,string>} Mapping of emoji to custom IDs
- */
-function parseEmojiPack(msg) {
-  const text = msg.text || '';
-  const entities = Array.isArray(msg.entities) ? msg.entities : [];
-  const result = {};
-  const lines = text.split('\n');
-  let offset = 0;
-  for (const line of lines) {
-    const dash = line.indexOf('-');
-    if (dash === -1) { offset += line.length + 1; continue; }
-    const regular = line.slice(0, dash).trim();
-    if (!regular) { offset += line.length + 1; continue; }
-    const startSearch = offset + dash + 1;
-    const entity = entities.find(e => e.type === 'custom_emoji' && e.offset >= startSearch && e.offset < offset + line.length);
-    if (entity) {
-      result[regular] = entity.custom_emoji_id;
-      if (regular.startsWith(':') && regular.endsWith(':')) {
-        const actual = emoji.get(regular);
-        if (actual && actual !== regular) {
-          result[actual] = entity.custom_emoji_id;
-        }
-      }
-    }
-    offset += line.length + 1;
-  }
-  return result;
-}
 app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) return next();
