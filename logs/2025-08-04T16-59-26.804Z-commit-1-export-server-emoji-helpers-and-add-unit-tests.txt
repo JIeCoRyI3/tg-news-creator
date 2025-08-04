@@ -1,3 +1,5 @@
+_________________________
+Commit 1: Export server emoji helpers and add unit tests.
 diff --git a/server/index.js b/server/index.js
 index 0a2e8b5..70947db 100644
 --- a/server/index.js
@@ -92,3 +94,5 @@ index e69c6a8..aafcb20 100644
      "database-vis": "node db-visualizer.js"
    },
 
+
+_________________________

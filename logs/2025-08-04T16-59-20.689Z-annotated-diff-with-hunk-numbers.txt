@@ -1,8 +1,10 @@
+_________________________
+Annotated diff with hunk numbers:
 diff --git a/server/index.js b/server/index.js
 index 0a2e8b5..70947db 100644
 --- a/server/index.js
 +++ b/server/index.js
-@@ -1451,6 +1451,15 @@ if (fs.existsSync(CLIENT_DIST)) {
+@@ -1451,6 +1451,15 @@ if (fs.existsSync(CLIENT_DIST)) {  # hunk 1
    });
  }
  
@@ -21,12 +23,13 @@ index 0a2e8b5..70947db 100644
 +  parseEmojiPack,
 +  getStore
 +};
+
 diff --git a/server/index.test.js b/server/index.test.js
 new file mode 100644
 index 0000000..88a7352
 --- /dev/null
 +++ b/server/index.test.js
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,51 @@  # hunk 1
 +const test = require('node:test');
 +const assert = require('node:assert');
 +
@@ -78,11 +81,12 @@ index 0000000..88a7352
 +  const result = parseEmojiPack(msg);
 +  assert.deepStrictEqual(result, { ':smile:': 'id123', '😄': 'id123' });
 +});
+
 diff --git a/server/package.json b/server/package.json
 index e69c6a8..aafcb20 100644
 --- a/server/package.json
 +++ b/server/package.json
-@@ -4,7 +4,7 @@
+@@ -4,7 +4,7 @@  # hunk 1
    "description": "",
    "main": "index.js",
    "scripts": {
@@ -92,3 +96,6 @@ index e69c6a8..aafcb20 100644
      "database-vis": "node db-visualizer.js"
    },
 
+
+
+_________________________

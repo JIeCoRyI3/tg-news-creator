@@ -1,0 +1,4 @@
+_________________________
+GPT response:
+{"commits":[{"message":"Export server emoji helpers and add unit tests.","files":[{"path":"server/index.js","hunks":[1]},{"path":"server/index.test.js","hunks":[1]},{"path":"server/package.json","hunks":[1]}]}]}
+_________________________
