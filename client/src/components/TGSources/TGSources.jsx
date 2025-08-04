@@ -29,6 +29,9 @@ export default function TGSources({ urls, addUrl, removeUrl }) {
       }
     }
   }, [urls])
+  /**
+   * Add the typed URL to the sources list and clear the input field.
+   */
   const onAdd = () => {
     if (!value.trim()) return
     addUrl(value.trim())

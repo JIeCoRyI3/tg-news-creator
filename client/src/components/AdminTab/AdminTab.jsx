@@ -27,6 +27,10 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [refImages, setRefImages] = useState([])
 
+  /**
+   * Refresh approvers, pending queue, posting channels and reference
+   * images from the server for this instance.
+   */
   const load = () => {
     apiFetch(`/api/instances/${instanceId}/approvers`)
       .then(r => r.json())
@@ -56,6 +60,10 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
     return () => clearInterval(id)
   }, [])
 
+  /**
+   * Add a Telegram username to the list of approvers for this
+   * instance.
+   */
   const add = () => {
     if (!username.trim()) return
     apiFetch(`/api/instances/${instanceId}/approvers`, {
@@ -68,6 +76,10 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
     }).catch(() => {})
   }
 
+  /**
+   * Register an additional Telegram channel where approved posts will
+   * be published.
+   */
   const addPostChannel = () => {
     if (!channelLink.trim()) return
     apiFetch(`/api/instances/${instanceId}/post-channels`, {
@@ -81,17 +93,27 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
   }
 
 
+  /**
+   * Remove an approver from this instance.
+   */
   const remove = (name) => {
     apiFetch(`/api/instances/${instanceId}/approvers?username=${name}`, {
       method: 'DELETE'
     }).then(load).catch(() => {})
   }
 
+  /**
+   * Approve a post currently awaiting moderation.
+   */
   const approve = (id) => {
     apiFetch(`/api/awaiting/${id}/approve`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
+  /**
+   * Approve a post and request a regenerated image using the current
+   * image generation settings.
+   */
   const approveImage = (id) => {
     const body = { model: imageModel, prompt: imagePrompt, quality: imageQuality, size: imageSize }
     apiFetch(`/api/awaiting/${id}/image`, {
@@ -103,11 +125,17 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
       .catch(() => {})
   }
 
+  /**
+   * Cancel a pending post so it will not be published.
+   */
   const cancel = (id) => {
     apiFetch(`/api/awaiting/${id}/cancel`, { method: 'POST' })
       .then(load).catch(() => {})
   }
 
+  /**
+   * Upload reference images used for image generation.
+   */
   const uploadImages = (e) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
@@ -122,12 +150,18 @@ export default function AdminTab({ instanceId, onDelete, imageModel, setImageMod
     }).catch(() => {})
   }
 
+  /**
+   * Delete a previously uploaded reference image.
+   */
   const removeImage = (name) => {
     apiFetch(`/api/instances/${instanceId}/reference-images/${name}`, { method: 'DELETE' })
       .then(load)
       .catch(() => {})
   }
 
+  /**
+   * Permanently delete this instance after user confirmation.
+   */
   const doDelete = () => {
     apiFetch(`/api/instances/${instanceId}`, { method: 'DELETE' })
       .then(() => {

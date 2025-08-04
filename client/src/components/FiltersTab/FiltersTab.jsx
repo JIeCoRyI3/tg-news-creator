@@ -33,6 +33,10 @@ export default function FiltersTab({ filters, setFilters }) {
       .catch(() => {})
   }, [])
 
+  /**
+   * Submit the new filter form to the server and append the returned
+   * filter to the local list.
+   */
   const create = () => {
     const fd = new FormData()
     fd.append('title', title)
@@ -57,6 +61,11 @@ export default function FiltersTab({ filters, setFilters }) {
       .catch(() => {})
   }
 
+  /**
+   * Upload optional training files to create a vector store for the
+   * filter.  The resulting vector store ID is stored for submission with
+   * the filter form.
+   */
   const uploadFiles = (selected) => {
     setFiles(selected)
     if (selected.length === 0) {

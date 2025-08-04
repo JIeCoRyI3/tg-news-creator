@@ -20,6 +20,10 @@ export default function Users({ user }) {
   const [accounts, setAccounts] = useState([])
   const fileInput = useRef(null)
 
+  /**
+   * Retrieve the list of user accounts from the server and store them
+   * locally.
+   */
   const load = () => {
     apiFetch('/api/users')
       .then(r => r.json())
@@ -29,6 +33,10 @@ export default function Users({ user }) {
 
   useEffect(load, [])
 
+  /**
+   * Create a new user account using the provided login and password
+   * fields, then refresh the user list.
+   */
   const addUser = () => {
     if (!login.trim() || !password.trim()) return
     apiFetch('/api/users', {
@@ -44,16 +52,25 @@ export default function Users({ user }) {
       .catch(() => {})
   }
 
+  /**
+   * Remove a user account by login name.
+   */
   const deleteUser = (name) => {
     apiFetch(`/api/users/${name}`, { method: 'DELETE' })
       .then(load)
       .catch(() => {})
   }
 
+  /**
+   * Trigger the hidden file input to import data dumps.
+   */
   const importData = () => {
     fileInput.current?.click()
   }
 
+  /**
+   * Upload selected JSON files to the server for import.
+   */
   const onFiles = (e) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return

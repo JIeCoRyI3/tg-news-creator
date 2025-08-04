@@ -18,6 +18,11 @@ export default function Login({ onLogin }) {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
 
+  /**
+   * Handle form submission by requesting an access token from the
+   * server.  Successful responses store the token and trigger the
+   * optional onLogin callback.
+   */
   const submit = (e) => {
     e.preventDefault()
     console.log('Logging in as', login)

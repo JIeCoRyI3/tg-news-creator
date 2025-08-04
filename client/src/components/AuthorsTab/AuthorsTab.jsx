@@ -32,6 +32,10 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
       .catch(() => {})
   }, [])
 
+  /**
+   * Submit the author creation form and add the new author to local
+   * state.
+   */
   const create = () => {
     const fd = new FormData()
     fd.append('title', title)
@@ -54,6 +58,10 @@ export default function AuthorsTab({ authors, setAuthors, postSuffix, setPostSuf
       .catch(() => {})
   }
 
+  /**
+   * Upload supporting files to build a vector store for the author
+   * assistant.  Stores the resulting vector store ID.
+   */
   const uploadFiles = (selected) => {
     setFiles(selected)
     if (selected.length === 0) {

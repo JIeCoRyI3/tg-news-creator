@@ -7,6 +7,10 @@ import PropTypes from 'prop-types'
  * Render a multi-select checkbox list of channels.
  */
 export default function ChannelSelect({ channels, selected, setSelected }) {
+  /**
+   * Add or remove a channel from the selected list when its checkbox is
+   * toggled.
+   */
   const toggle = (id) => {
     setSelected(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])
   }

@@ -98,10 +98,17 @@ export default function Instance({ id, title, onDelete }) {
     }).catch(() => {})
   }, [id, loaded, selectedChannels, mode, tab, tgUrls, selectedFilter, selectedAuthor, imageModel, imagePrompt, imageQuality, imageSize, postSuffix])
 
+  /**
+   * Append a Telegram channel URL to the sources list if it is not
+   * already present.
+   */
   const addTgUrl = (url) => {
     setTgUrls(prev => prev.includes(url) ? prev : [...prev, url])
   }
 
+  /**
+   * Remove a Telegram channel URL from the sources list.
+   */
   const removeTgUrl = (url) => {
     setTgUrls(prev => prev.filter(u => u !== url))
   }
@@ -223,6 +230,10 @@ export default function Instance({ id, title, onDelete }) {
     }
   }
 
+  /**
+   * Begin scraping Telegram channels without posting.  Requires that at
+   * least one channel, filter and author have been selected.
+   */
   const startScraping = () => {
     if (!selectedChannels.length || selectedFilter === 'none' || selectedAuthor === 'none') {
       window.alert('Please select at least one channel, a filter and an author before starting.')
@@ -235,6 +246,10 @@ export default function Instance({ id, title, onDelete }) {
     connect('/api/tgnews', params.toString())
   }
 
+  /**
+   * Start posting scraped news items to the selected Telegram channels.
+   * Confirms with the user and announces the start to each channel.
+   */
   const startPosting = () => {
     if (posting) {
       window.alert('Posting is already started')
@@ -259,6 +274,10 @@ export default function Instance({ id, title, onDelete }) {
     connect('/api/tgnews', params.toString())
   }
 
+  /**
+   * Stop all background activity and clear state.  If posting was
+   * active, send a final "Posting ended" message to each channel.
+   */
   const stop = () => {
     if (es) {
       es.close()
