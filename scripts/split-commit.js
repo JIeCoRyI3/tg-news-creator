@@ -91,13 +91,14 @@ function textToPdf(text, filePath) {
 (async () => {
   const apiKeyPath = process.env.OPENAI_API_KEY_FILE || 'openai.key';
   const apiKey = fs.readFileSync(apiKeyPath, 'utf8').trim();
-  const baseBranch = process.env.BASE_BRANCH || 'main';
-  const origDiff = execSync(`git diff origin/${baseBranch}...HEAD`, { encoding: 'utf8' });
+  const headCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  const previousCommit = execSync('git rev-parse HEAD^', { encoding: 'utf8' }).trim();
+  const origDiff = execSync(`git diff ${previousCommit} ${headCommit}`, { encoding: 'utf8' });
   const prDescription = process.env.PR_DESCRIPTION || '';
 
   const parsedDiff = parseDiff(origDiff);
   const annotatedDiff = buildAnnotatedDiff(parsedDiff);
-  logBlock('Original diff from base branch to HEAD:', origDiff);
+  logBlock('Original diff from previous commit to HEAD:', origDiff);
   logBlock('Annotated diff with hunk numbers:', annotatedDiff);
   const diffFile = 'diff.pdf';
   await textToPdf(annotatedDiff, diffFile);
@@ -237,7 +238,7 @@ function textToPdf(text, filePath) {
 
   logBlock(`Parsed ${commits.length} commits from GPT response`);
 
-  execSync(`git reset --hard origin/${baseBranch}`);
+  execSync(`git reset --hard ${previousCommit}`);
 
   commits.forEach((commit, index) => {
     let patch = '';
@@ -272,6 +273,6 @@ function textToPdf(text, filePath) {
     fs.unlinkSync(patchFile);
   });
 
-  const finalDiff = execSync(`git diff origin/${baseBranch}...HEAD`, { encoding: 'utf8' });
+  const finalDiff = execSync(`git diff ${previousCommit}..HEAD`, { encoding: 'utf8' });
   logBlock('Final diff after applying patches:', finalDiff);
 })();

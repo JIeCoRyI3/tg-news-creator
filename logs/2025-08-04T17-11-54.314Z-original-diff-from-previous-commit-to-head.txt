@@ -1,3 +1,5 @@
+_________________________
+Original diff from previous commit to HEAD:
 diff --git a/.github/workflows/split-pr.yml b/.github/workflows/split-pr.yml
 index 0dc8422..e8cac52 100644
 --- a/.github/workflows/split-pr.yml
@@ -128,3 +130,4 @@ index eb9792b..b605833 100644
    logBlock('Final diff after applying patches:', finalDiff);
  })();
 
+_________________________
