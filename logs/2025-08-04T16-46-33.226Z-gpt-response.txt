@@ -1,0 +1,4 @@
+_________________________
+GPT response:
+{"commits":[{"message":"Refactor diff parsing and annotation logic","files":[{"path":"scripts/split-commit.js","hunks":[1,2,3,4,5]},{"path":"scripts/split-commit.js","hunks":[6,7]}]}]}
+_________________________
