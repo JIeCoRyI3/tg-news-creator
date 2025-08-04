@@ -7,3 +7,4 @@ server/uploads/
 openai.key
 logs/
 patch_0.diff
+package-lock.json
