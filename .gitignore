@@ -5,3 +5,5 @@ server/node_modules
 data.db
 server/uploads/
 openai.key
+logs/
+patch_0.diff
