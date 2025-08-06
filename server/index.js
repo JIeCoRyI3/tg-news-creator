@@ -105,11 +105,132 @@ function getStore(login) {
 
 // Keep track of posts we've already scraped to avoid logging duplicates
 const scrapedPostUrls = new Set();
+// Map of instanceId -> { login, posting, interval, seen, news, logs, clients }
+const runningInstances = new Map();
 
 function log(message, instanceId) {
   const prefix = instanceId ? `[${instanceId}] ` : '';
   console.log(prefix + message);
   botEvents.emit('log', { message, instanceId });
+  if (instanceId && runningInstances.has(instanceId)) {
+    const state = runningInstances.get(instanceId);
+    state.logs.push(message);
+    state.logs = state.logs.slice(-100);
+  }
+}
+
+async function evaluateFilter(login, filterId, text, instanceId) {
+  const store = getStore(login);
+  const filter = store.filters.find(f => f.id === filterId);
+  if (!filter) return { passed: true, score: 0 };
+  if (!process.env.OPENAI_API_KEY) return { passed: true, score: 0 };
+  const resp = await openai.chat.completions.create({
+    model: filter.model,
+    messages: [
+      { role: 'system', content: filter.instructions },
+      { role: 'user', content: text }
+    ]
+  });
+  const content = resp.choices[0].message.content || '';
+  const m = content.match(/(\d+(?:\.\d+)?)/);
+  const score = m ? parseFloat(m[1]) : 0;
+  const threshold = typeof filter.min_score === 'number' ? filter.min_score : 7;
+  log(`Score ${score} for post`, instanceId);
+  return { passed: score > threshold, score };
+}
+
+async function rewriteAuthor(login, authorId, text, instanceId) {
+  const store = getStore(login);
+  const author = store.authors.find(a => a.id === authorId);
+  if (!author) return text;
+  if (!process.env.OPENAI_API_KEY) return text;
+  const resp = await openai.chat.completions.create({
+    model: author.model,
+    messages: [
+      { role: 'system', content: author.instructions },
+      { role: 'user', content: text }
+    ]
+  });
+  return resp.choices[0].message.content;
+}
+
+function startInstance(login, inst, posting) {
+  if (runningInstances.has(inst.id)) {
+    const existing = runningInstances.get(inst.id);
+    existing.posting = posting;
+    return existing;
+  }
+  const state = {
+    login,
+    posting,
+    interval: null,
+    seen: new Set(),
+    news: [],
+    logs: [],
+    clients: new Set()
+  };
+  runningInstances.set(inst.id, state);
+  log(`Instance ${inst.id} started${posting ? ' with posting' : ''}`, inst.id);
+
+  const sendItems = async () => {
+    for (const url of inst.tgUrls || []) {
+      try {
+        log(`Scraping TG ${url}`, inst.id);
+        const items = await scrapeTelegramChannel(url);
+        for (const item of items) {
+          if (state.seen.has(item.url)) continue;
+          state.seen.add(item.url);
+          const enriched = { ...item, source: url };
+          state.news.push(enriched);
+          state.news = state.news.slice(-100);
+          for (const client of state.clients) {
+            client.write(`data: ${JSON.stringify(enriched)}\n\n`);
+          }
+          if (state.posting && Array.isArray(inst.channels) && inst.channels.length) {
+            const postId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            let base = `${item.text || item.title}\n${item.url}`;
+            if (inst.filter && inst.filter !== 'none') {
+              const { passed } = await evaluateFilter(login, inst.filter, base, inst.id);
+              if (!passed) continue;
+            }
+            if (inst.author && inst.author !== 'none') {
+              base = await rewriteAuthor(login, inst.author, base, inst.id);
+            }
+            const finalText = inst.postSuffix ? `${base}\n${inst.postSuffix}` : base;
+            const media = item.media && (item.media.find(m => m.endsWith('.mp4')) || item.media[0]);
+            for (const ch of inst.channels) {
+              try {
+                await postToChannel({ channel: ch, text: finalText, media, instanceId: inst.id, login });
+              } catch (e) {
+                log(`Failed to post to ${ch}: ${e.message}`, inst.id);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching tg source', url, err.message);
+      } finally {
+        for (const client of state.clients) {
+          client.write(`event: ping\ndata: ${JSON.stringify({ source: url, time: Date.now() })}\n\n`);
+        }
+      }
+    }
+  };
+
+  sendItems();
+  state.interval = setInterval(sendItems, 60000);
+  return state;
+}
+
+function stopInstance(id) {
+  const state = runningInstances.get(id);
+  if (!state) return;
+  clearInterval(state.interval);
+  for (const client of state.clients) {
+    client.end();
+  }
+  runningInstances.delete(id);
+  log(`Instance ${id} stopped`, id);
 }
 
 const awaitingPosts = new Map();
@@ -889,6 +1010,28 @@ app.delete('/api/instances/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/instances/:id/start', (req, res) => {
+  const { id } = req.params;
+  const { posting } = req.body || {};
+  const store = getStore(req.user.login);
+  const inst = store.instances.find(i => i.id === id);
+  if (!inst) return res.status(404).json({ error: 'not found' });
+  startInstance(req.user.login, inst, !!posting);
+  res.json({ ok: true });
+});
+
+app.post('/api/instances/:id/stop', (req, res) => {
+  const { id } = req.params;
+  stopInstance(id);
+  res.json({ ok: true });
+});
+
+app.get('/api/instances/:id/status', (req, res) => {
+  const { id } = req.params;
+  const state = runningInstances.get(id);
+  res.json({ running: !!state, posting: state ? state.posting : false });
+});
+
 app.get('/api/instances/:id/approvers', (req, res) => {
   const { instances } = getStore(req.user.login);
   const inst = instances.find(i => i.id === req.params.id);
@@ -1093,6 +1236,12 @@ app.get('/api/logs', (req, res) => {
     Connection: 'keep-alive'
   });
   res.flushHeaders();
+  const state = runningInstances.get(instanceId);
+  if (state) {
+    for (const msg of state.logs) {
+      res.write(`data: ${JSON.stringify({ message: msg })}\n\n`);
+    }
+  }
   const logListener = (info) => {
     if (!info || typeof info.message !== 'string') return;
     if (info.instanceId === instanceId) {
@@ -1391,7 +1540,7 @@ app.post('/api/authors/:id/rewrite', async (req, res) => {
 });
 
 
-app.get('/api/tgnews', async (req, res) => {
+app.get('/api/tgnews', (req, res) => {
   const { instanceId } = req.query;
   res.set({
     'Content-Type': 'text/event-stream',
@@ -1399,47 +1548,17 @@ app.get('/api/tgnews', async (req, res) => {
     Connection: 'keep-alive'
   });
   res.flushHeaders();
-
-  const logListener = (info) => {
-    if (!info || typeof info.message !== 'string') return;
-    if (info.instanceId === instanceId) {
-      res.write(`event: log\ndata: ${JSON.stringify({ message: info.message })}\n\n`);
-    }
-  };
-  botEvents.on('log', logListener);
-
-  const urls = req.query.urls ? req.query.urls.split(',') : tgSources;
-  const includeHistory = req.query.history !== 'false';
-  const seen = new Set();
-  let initial = true;
-
-  const sendItems = async () => {
-    for (const url of urls) {
-      try {
-        log(`Scraping TG ${url}`, instanceId);
-        const items = await scrapeTelegramChannel(url);
-        for (const item of items) {
-          if (seen.has(item.url)) continue;
-          seen.add(item.url);
-          if (!includeHistory && initial) continue;
-          log(`Found post ${item.url}`, instanceId);
-          res.write(`data: ${JSON.stringify({ ...item, source: url })}\n\n`);
-          log(`Sent post ${item.url}`, instanceId);
-        }
-      } catch (err) {
-        console.error('Error fetching tg source', url, err.message);
-      } finally {
-        res.write(`event: ping\ndata: ${JSON.stringify({ source: url, time: Date.now() })}\n\n`);
-      }
-    }
-  };
-
-  await sendItems();
-  initial = false;
-  const interval = setInterval(sendItems, 60000);
+  const state = runningInstances.get(instanceId);
+  if (!state) {
+    res.write('event: end\n\n');
+    return res.end();
+  }
+  state.clients.add(res);
+  for (const item of state.news) {
+    res.write(`data: ${JSON.stringify(item)}\n\n`);
+  }
   req.on('close', () => {
-    clearInterval(interval);
-    botEvents.off('log', logListener);
+    state.clients.delete(res);
   });
 });
 

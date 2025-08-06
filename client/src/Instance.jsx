@@ -143,79 +143,17 @@ export default function Instance({ id, title, onDelete }) {
    * The token and instance ID are appended to the query string so the
    * server can authenticate and route events appropriately.
    */
-  const connect = (endpoint, params) => {
+  const connect = () => {
     if (es) return
-    const qs = new URLSearchParams(params)
+    const qs = new URLSearchParams()
     qs.append('instanceId', id)
     const token = localStorage.getItem('access-token')
     if (token) qs.append('token', token)
-    const eventSource = new EventSource(`${endpoint}?${qs.toString()}`)
+    const eventSource = new EventSource(`/api/tgnews?${qs.toString()}`)
     setEs(eventSource)
     eventSource.onmessage = (e) => {
       const item = JSON.parse(e.data)
       setNews(prev => [item, ...prev])
-      if (postingRef.current) {
-        const postId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
-        const base = tabRef.current === 'tg'
-          ? `${item.text || item.title}\n${item.url}`
-          : `*${item.title}*\n${item.url}`
-        const media = item.media?.find(m => m.endsWith('.mp4')) || item.media?.[0]
-        const send = (text) => {
-          const finalText = postSuffixRef.current
-            ? `${text}\n${postSuffixRef.current}`
-            : text
-          channelsRef.current.forEach(ch => {
-            apiFetch('/api/post', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ channel: ch, text: finalText, media, instanceId: id, id: postId })
-            }).catch(() => {})
-          })
-        }
-        const fid = filterRef.current
-        if (fid && fid !== 'none') {
-          apiFetch(`/api/filters/${fid}/evaluate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: base, post_id: postId })
-          })
-            .then(r => r.json())
-            .then(data => {
-              const fobj = filtersRef.current.find(f => f.id === fid)
-              const threshold = fobj && typeof fobj.min_score === 'number' ? fobj.min_score : 7
-              if (data.score > threshold) {
-                const aid = authorRef.current
-                if (aid && aid !== 'none') {
-                  apiFetch(`/api/authors/${aid}/rewrite`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: base, post_id: postId })
-                  })
-                    .then(r => r.json())
-                    .then(resp => send(resp.text))
-                    .catch(() => {})
-                } else {
-                  send(base)
-                }
-              }
-            })
-            .catch(() => {})
-        } else {
-          const aid = authorRef.current
-          if (aid && aid !== 'none') {
-            apiFetch(`/api/authors/${aid}/rewrite`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: base, post_id: postId })
-            })
-              .then(r => r.json())
-              .then(resp => send(resp.text))
-              .catch(() => {})
-          } else {
-            send(base)
-          }
-        }
-      }
     }
     eventSource.onerror = () => {
       eventSource.close()
@@ -223,16 +161,33 @@ export default function Instance({ id, title, onDelete }) {
     }
   }
 
+  useEffect(() => {
+    apiFetch(`/api/instances/${id}/status`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.running) {
+          setPosting(data.posting)
+          connect()
+        }
+      })
+      .catch(() => {})
+  }, [id])
+
   const startScraping = () => {
     if (!selectedChannels.length || selectedFilter === 'none' || selectedAuthor === 'none') {
       window.alert('Please select at least one channel, a filter and an author before starting.')
       return
     }
     setPosting(false)
-    const params = new URLSearchParams()
-    params.append('urls', tgUrls.join(','))
-    params.append('history', 'true')
-    connect('/api/tgnews', params.toString())
+    setNews([])
+    setLogs([])
+    apiFetch(`/api/instances/${id}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ posting: false })
+    })
+      .then(() => connect())
+      .catch(() => {})
   }
 
   const startPosting = () => {
@@ -246,6 +201,8 @@ export default function Instance({ id, title, onDelete }) {
     }
     if (!window.confirm('Start posting to the selected Telegram channels?')) return
     setPosting(true)
+    setNews([])
+    setLogs([])
     selectedChannels.forEach(ch => {
       apiFetch('/api/post', {
         method: 'POST',
@@ -253,10 +210,13 @@ export default function Instance({ id, title, onDelete }) {
         body: JSON.stringify({ channel: ch, text: 'Posting started', instanceId: id })
       }).catch(() => {})
     })
-    const params = new URLSearchParams()
-    params.append('urls', tgUrls.join(','))
-    params.append('history', 'true')
-    connect('/api/tgnews', params.toString())
+    apiFetch(`/api/instances/${id}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ posting: true })
+    })
+      .then(() => connect())
+      .catch(() => {})
   }
 
   const stop = () => {
@@ -264,6 +224,9 @@ export default function Instance({ id, title, onDelete }) {
       es.close()
       setEs(null)
     }
+    apiFetch(`/api/instances/${id}/stop`, {
+      method: 'POST'
+    }).catch(() => {})
     if (postingRef.current) {
       channelsRef.current.forEach(ch => {
         apiFetch('/api/post', {
