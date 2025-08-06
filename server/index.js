@@ -187,7 +187,6 @@ function startInstance(login, inst, posting) {
             client.write(`data: ${JSON.stringify(enriched)}\n\n`);
           }
           if (state.posting && Array.isArray(inst.channels) && inst.channels.length) {
-            const postId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
             let base = `${item.text || item.title}\n${item.url}`;
             if (inst.filter && inst.filter !== 'none') {
               const { passed } = await evaluateFilter(login, inst.filter, base, inst.id);
@@ -198,9 +197,28 @@ function startInstance(login, inst, posting) {
             }
             const finalText = inst.postSuffix ? `${base}\n${inst.postSuffix}` : base;
             const media = item.media && (item.media.find(m => m.endsWith('.mp4')) || item.media[0]);
+            const approverList = inst && Array.isArray(inst.approvers)
+              ? inst.approvers
+              : Array.from(allApprovers);
+            const targets = [];
+            for (const [uid, name] of activeApprovers.entries()) {
+              if (approverList.includes(name)) targets.push(uid);
+            }
             for (const ch of inst.channels) {
               try {
-                await postToChannel({ channel: ch, text: finalText, media, instanceId: inst.id, login });
+                if (targets.length) {
+                  const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                  const info = { id, channel: ch, text: finalText, media, instanceId: inst.id, login };
+                  awaitingPosts.set(id, info);
+                  for (const uid of targets) {
+                    const { text: replacedText, replaced } = applyCustomEmojisWithInfo(info.text || '', login);
+                    const decorated = { ...info, text: replacedText + (replaced.length ? `\nReplaced: ${replaced.join(', ')}` : '') };
+                    sendApprovalRequest(uid, decorated).catch(() => {});
+                  }
+                  log(`Queued post ${id} for approval`, inst.id);
+                } else {
+                  await postToChannel({ channel: ch, text: finalText, media, instanceId: inst.id, login });
+                }
               } catch (e) {
                 log(`Failed to post to ${ch}: ${e.message}`, inst.id);
               }
